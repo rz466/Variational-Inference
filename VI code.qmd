@@ -1,0 +1,1473 @@
+---
+title: "VI Implementation"
+format: html
+editor: visual
+---
+
+```{r}
+suppressPackageStartupMessages({
+  library(zellkonverter)
+  library(SingleCellExperiment)
+  library(Matrix)
+})
+```
+
+```{r}
+logit <- function(x) {
+	log(x) - log(1 - x)
+}
+
+logistic <- function(x) {
+	1 / (1 + exp(-x))
+}
+
+log_sum_exp <- function(x) {
+	x.max <- max(x);
+	log(sum(exp(x - x.max))) + x.max
+}
+```
+
+```{r}
+### Functions from github that are reused directly
+
+# E[x] under a beta distribution
+expect_x_beta <- function(param) {
+  with(param, a / (a + b))
+}
+
+# E[logit(x)] under a beta distribution
+expect_logit_x_beta <- function(param) {
+  with(param, digamma(a) - digamma(b))
+}
+
+# E[log(x)] under a beta distribution
+expect_log_x_beta <- function(param) {
+  with(param, digamma(a) - digamma(a + b))
+}
+
+# E[log(1-x)] under a beta distribution
+expect_log_1mx_beta <- function(param) {
+  with(param, digamma(b) - digamma(a + b))
+}
+
+# -E[log q] for a Bernoulli distribution, with direct parameterization
+entropy_bern_d <- function(prob) {
+  # -prob*log(prob) - (1-prob)*log(1-prob)
+  log_q_zero <- ifelse(prob == 1, 0, -(1 - prob) * log(1 - prob));
+  log_q_one <- ifelse(prob == 0, 0, -prob * log(prob));
+  sum(log_q_zero + log_q_one)
+}
+
+### Newly added
+
+# Elementwise version of -E[log q] for a Bernoulli distribution
+bern_h <- function(prob) {
+  out <- numeric(length(prob));
+  idx_positive <- prob > 0;
+  idx_less_than_one <- prob < 1;
+  out[idx_positive] <- out[idx_positive] -
+    prob[idx_positive] * log(prob[idx_positive]);
+  out[idx_less_than_one] <- out[idx_less_than_one] -
+    (1 - prob[idx_less_than_one]) * log(1 - prob[idx_less_than_one]);
+  dim(out) <- dim(prob);
+  out
+}
+
+# multiplier * log(log_argument), with 0*log(log_argument)=0
+x_log_y <- function(multiplier, log_argument) {
+  stopifnot(length(multiplier) == length(log_argument));
+  out <- numeric(length(multiplier));
+  idx_nonzero <- multiplier != 0;
+  out[idx_nonzero] <- multiplier[idx_nonzero] * log(log_argument[idx_nonzero]);
+  dim(out) <- dim(multiplier);
+  out
+}
+
+# log E[exp(delta * exponent)] = log[(1-prob) + prob*exp(exponent)]
+log_expect_exp_bernoulli <- function(prob, exponent) {
+  if (prob <= 0) {
+    return(rep(0, length(exponent)));
+  }
+  if (prob >= 1) {
+    return(exponent);
+  }
+  log_delta_zero <- log1p(-prob);
+  log_delta_one <- log(prob) + exponent;
+  max_log_component <- pmax(log_delta_zero, log_delta_one);
+  max_log_component + log(exp(log_delta_zero - max_log_component) + exp(log_delta_one - max_log_component))
+}
+
+# E(m), E(log(m)), E(m^-1), E(m*log(m))
+compute_m_moments <- function(data, expect_delta, mu_beta, sigma2_beta) {
+  N <- data$N;
+  J <- data$J;
+  K <- data$K;
+  
+  # C_ik = (1-u_ik) a_ik
+  C_ik <- data$C;
+  C_ik_squared <- C_ik * C_ik;
+  
+  expect_m <- matrix(0, N, J);
+  expect_log_m <- matrix(0, N, J);
+  expect_m_inverse <- matrix(0, N, J);
+  expect_m_log_m <- matrix(0, N, J);
+  
+  for (j in seq_len(J)) {
+    expect_delta_j <- expect_delta[, j];
+    mu_beta_j <- mu_beta[, j];
+    sigma2_beta_j <- sigma2_beta[, j];
+    
+    # E[m_ij]
+    positive_exponent <- sweep(C_ik, 2, mu_beta_j, "*") + 0.5 * sweep(C_ik_squared, 2, sigma2_beta_j, "*")
+    log_expect_exp_delta_beta <- matrix(0, N, K);
+    
+    for (k in seq_len(K)) {
+      log_expect_exp_delta_beta[, k] <- log_expect_exp_bernoulli(expect_delta_j[k], positive_exponent[, k]);
+    }
+    
+    log_expect_m <- rowSums(log_expect_exp_delta_beta);
+    expect_m[, j] <- exp(log_expect_m);
+    
+    # E[log m_ij]
+    expect_log_m[, j] <- as.vector(C_ik %*% (expect_delta_j * mu_beta_j));
+    
+    # E[m_ij log m_ij]
+    expect_m_log_m_sum <- numeric(N);
+    
+    for (k in seq_len(K)) {
+      if (expect_delta_j[k] > 0) {
+        exp_beta_over_mixture <- exp(positive_exponent[, k] - log_expect_exp_delta_beta[, k]);
+        expect_m_log_m_sum <- expect_m_log_m_sum + expect_delta_j[k] * C_ik[, k] *
+          (mu_beta_j[k] + C_ik[, k] * sigma2_beta_j[k]) * exp_beta_over_mixture;
+      }
+    }
+    
+    expect_m_log_m[, j] <- expect_m[, j] * expect_m_log_m_sum;
+    
+    # E[m_ij^{-1}]
+    negative_exponent <- sweep(C_ik, 2, -mu_beta_j, "*") + 0.5 * sweep(C_ik_squared, 2, sigma2_beta_j, "*")
+    log_expect_exp_negative_delta_beta <- matrix(0, N, K);
+    
+    for (k in seq_len(K)) {
+      log_expect_exp_negative_delta_beta[, k] <- log_expect_exp_bernoulli(expect_delta_j[k], negative_exponent[, k]);
+    }
+    
+    expect_m_inverse[, j] <- exp(rowSums(log_expect_exp_negative_delta_beta));
+  }
+  
+  if (
+    any(!is.finite(expect_m)) ||
+    any(!is.finite(expect_log_m)) ||
+    any(!is.finite(expect_m_inverse)) ||
+    any(!is.finite(expect_m_log_m))
+  ) {
+    stop(
+      "Non-finite m-moment."
+    );
+  }
+  
+  list(
+    expect_m = expect_m,
+    expect_log_m = expect_log_m,
+    expect_m_inverse = expect_m_inverse,
+    expect_m_log_m = expect_m_log_m
+  )
+}
+
+# E[log p(theta)] - E[log q(theta)] for a Beta prior and Beta variational distribution
+beta_prior_minus_q <- function(variational_beta_param, prior_alpha, prior_beta) {
+  expect_log_theta <- expect_log_x_beta(variational_beta_param);
+  expect_log_one_minus_theta <- expect_log_1mx_beta(variational_beta_param);
+  
+  with(variational_beta_param, sum(-lbeta(prior_alpha, prior_beta) + lbeta(a, b) + (prior_alpha - a) * 
+                                     expect_log_theta + (prior_beta - b) * expect_log_one_minus_theta))
+}
+
+# log p(a)
+log_prior_a <- function(a, alpha) {
+  sum(-lgamma(alpha) + alpha * log(alpha) + (alpha - 1) * log(a) - alpha * a)
+}
+```
+
+```{r}
+# Preprocess x, u, and fixed a
+prepare_data <- function(data) {
+  if (is.null(data$x) || is.null(data$u) || is.null(data$a)) {
+    stop("data must contain x, u, and a.");
+  }
+  
+  x <- as.matrix(data$x);
+  u <- as.matrix(data$u);
+  a <- as.matrix(data$a);
+  storage.mode(x) <- "double";
+  storage.mode(u) <- "double";
+  storage.mode(a) <- "double";
+  
+  # Cells, genes, regulators
+  N <- nrow(x);
+  J <- ncol(x);
+  K <- if (is.null(data$K)) ncol(a) else as.integer(data$K);
+  
+  data$x <- x;
+  data$u <- u;
+  data$a <- a;
+  data$N <- N;
+  data$J <- J;
+  data$K <- K;
+  
+  # C_ik = (1-u_ik) a_ik
+  data$C <- (1 - u[, seq_len(K), drop=FALSE]) * a;
+  
+  structure(data, class="exprsim_vi_data")
+}
+
+# Initialize variational parameters
+prepare_params <- function(params0, data, hparams) {
+  if (is.null(params0)) {
+    params0 <- list();
+  }
+  
+  N <- data$N;
+  J <- data$J;
+  K <- data$K;
+  
+  # Start Beta variational factors at their priors
+  vparams <- list(
+    psi = list(a = rep(hparams$alpha_psi, K), b = rep(hparams$beta_psi, K)),
+    phi = list(a = rep(hparams$alpha_phi, J), b = rep(hparams$beta_phi, J)),
+    eta = list(a = rep(hparams$alpha_eta, J), b = rep(hparams$beta_eta, J)),
+    beta_delta = list(
+      mu_beta = if (is.null(params0$mu_beta)) {
+        matrix(0, K, J)
+      } else {
+        as.matrix(params0$mu_beta)
+      },
+      sigma2_beta = if (is.null(params0$sigma2_beta)) {
+        matrix(1 / hparams$tau, K, J)
+      } else {
+        as.matrix(params0$sigma2_beta)
+      }
+    ),
+    z = list(a = matrix(1, N, J), b = matrix(hparams$gamma, N, J))
+  );
+  
+  # Initial E[delta_kj] = E[psi_k] E[phi_j]
+  if (is.null(params0$expect_delta)) {
+    expect_psi <- expect_x_beta(vparams$psi);
+    expect_phi <- expect_x_beta(vparams$phi);
+    expect_delta <- outer(expect_psi, expect_phi, "*");
+  } else {
+    expect_delta <- as.matrix(params0$expect_delta);
+  }
+  
+  # Initial E[v_ij] = E[eta_j], with v_ij = 1 when x_ij > 0
+  if (is.null(params0$expect_v)) {
+    expect_eta <- expect_x_beta(vparams$eta);
+    expect_v <- matrix(rep(expect_eta, each=N), N, J);
+    expect_v[data$x > 0] <- 1;
+  } else {
+    expect_v <- as.matrix(params0$expect_v);
+    expect_v[data$x > 0] <- 1;
+  }
+  
+  # Initial auxiliary tangent parameter for the z lower bound
+  if (is.null(params0$xi_z)) {
+    xi_z <- matrix(hparams$rho, N, J) + (1 - data$u) / hparams$gamma;
+  } else {
+    xi_z <- as.matrix(params0$xi_z);
+  }
+  
+  # Initial auxiliary parameter for the delta Jensen lower bound
+  if (is.null(params0$xi_delta)) {
+    expect_log_psi <- expect_log_x_beta(vparams$psi);
+    expect_log_one_minus_psi <- expect_log_1mx_beta(vparams$psi);
+    expect_log_one_minus_phi <- expect_log_1mx_beta(vparams$phi);
+    xi_delta <- logistic(outer(expect_log_one_minus_psi - expect_log_psi, expect_log_one_minus_phi, "-"));
+  } else {
+    xi_delta <- as.matrix(params0$xi_delta);
+  }
+  
+  mu_beta <- vparams$beta_delta$mu_beta;
+  sigma2_beta <- vparams$beta_delta$sigma2_beta;
+  
+  params <- list(
+    expect_delta = expect_delta,
+    expect_delta_beta = expect_delta * mu_beta,
+    expect_beta = expect_delta * mu_beta,
+    expect_beta2 = (1 - expect_delta) / hparams$tau + expect_delta * (mu_beta^2 + sigma2_beta),
+    expect_v = expect_v,
+    xi_z = xi_z,
+    xi_delta = xi_delta
+  );
+  
+  list(params = params, vparams = vparams)
+}
+
+# Decide which variational blocks are fixed during VI
+prepare_fixed <- function(fixed) {
+  if (is.null(fixed)) {
+    fixed <- list();
+  }
+  
+  for (block_name in c("beta_delta", "z_v", "eta", "psi", "phi")) {
+    if (is.null(fixed[[block_name]])) {
+      fixed[[block_name]] <- FALSE;
+    }
+  }
+  
+  # First implementation: a is fixed
+  if (is.null(fixed$a)) {
+    fixed$a <- TRUE;
+  }
+  
+  fixed
+}
+```
+
+```{r}
+# Fit the ExprSim variational model
+exprsim_vi <- function(data, hparams, model=NULL, tol=1e-2, max.iter=50, verbose=1) {
+  
+  if (is.null(model)) {
+    fit <- exprsim_vi_local(
+      data=data,
+      hparams=hparams,
+      verbose=verbose,
+      tol=tol,
+      max.iter=max.iter
+    );
+  } else {
+    stopifnot(is(model, "exprsim_vi_fit"));
+    fit <- exprsim_vi_local(
+      model=model,
+      verbose=verbose,
+      tol=tol,
+      max.iter=max.iter
+    );
+  }
+  
+  fit
+}
+
+# Initialize an exprsim_vi_fit object
+make_model <- function(data, params0=NULL, hparams) {
+  
+  if (!is(data, "exprsim_vi_data")) {
+    data <- prepare_data(data);
+  }
+  
+  prepared_params <- prepare_params(params0, data, hparams);
+  
+  # Combine params and hparams
+  model <- list(
+    data = data,
+    params = c(prepared_params$params, hparams),
+    vparams = prepared_params$vparams,
+    elbo = numeric(0),
+    elbo_trace = data.frame()
+  );
+  
+  # Expected log Beta quantities
+  model$params$expect_log_psi <- expect_log_x_beta(model$vparams$psi);
+  model$params$expect_log_one_minus_psi <- expect_log_1mx_beta(model$vparams$psi);
+  
+  model$params$expect_log_phi <- expect_log_x_beta(model$vparams$phi);
+  model$params$expect_log_one_minus_phi <- expect_log_1mx_beta(model$vparams$phi);
+  
+  model$params$expect_log_eta <- expect_log_x_beta(model$vparams$eta);
+  model$params$expect_log_one_minus_eta <- expect_log_1mx_beta(model$vparams$eta);
+  
+  # Initialize auxiliary quantities and variational blocks
+  model <- update_xi_delta(model);
+  model <- update_m_moments(model);
+  model <- update_q_z_v(model);
+  model <- update_xi_z(model);
+  model <- update_q_eta(model);
+  
+  structure(model, class="exprsim_vi_fit")
+}
+
+# Predict expression counts
+predict.exprsim_vi_fit <- function(object, u_new, a_new) {
+  
+  N <- nrow(a_new);
+  J <- object$data$J;
+  K <- object$data$K;
+  
+  data_new <- list(u = u_new, a = a_new, N = N, J = J, K = K, C = (1 - u_new[, seq_len(K), drop=FALSE]) * a_new);
+  
+  m_moments <- compute_m_moments(data=data_new, expect_delta=object$params$expect_delta,
+                                 mu_beta=object$vparams$beta_delta$mu_beta, sigma2_beta=object$vparams$beta_delta$sigma2_beta);
+  
+  expect_eta <- expect_x_beta(object$vparams$eta);
+  
+  expect_x <- (1 - u_new) * m_moments$expect_m * matrix(expect_eta, nrow=N, ncol=J, byrow=TRUE);
+  
+  expect_x
+}
+
+# Extract edge probabilities or beta means
+coef.exprsim_vi_fit <- function(object, par=c("delta", "beta_mu", "beta_mean")) {
+  par <- match.arg(par);
+  
+  if (par == "delta") {
+    return(object$params$expect_delta);
+  }
+  
+  if (par == "beta_mu") {
+    return(object$vparams$beta_delta$mu_beta);
+  }
+  
+  object$params$expect_beta
+}
+
+# Print fitted model
+print.exprsim_vi_fit <- function(object) {
+  niters <- length(object$elbo);
+  
+  elbo_value <- if (niters > 0) {
+    object$elbo[niters]
+  } else {
+    elbo(object)
+  }
+  
+  n_called <- sum(object$params$expect_delta > 0.5);
+  
+  cat("\nExprSim variational model\n\n");
+  cat("ELBO lower bound: ", elbo_value, ",  niters: ", niters, "\n", sep="");
+  cat("edges: ", n_called, " called out of ", object$data$K * object$data$J, "\n", sep="");
+}
+```
+
+```{r}
+# Find a local maximum for VI
+exprsim_vi_local <- function(data=NULL, hparams=NULL, params0=NULL, fixed=NULL,
+                             model=NULL, verbose=1, max.iter=100, tol=0.001) {
+  if (is.null(data)) {
+    if (is.null(model)) {
+      stop("Input data must be provided unless a previously fitted model is given.");
+    }
+  }
+  
+  if (is.null(model)) {
+    model <- make_model(data, params0, hparams);
+  } else {
+    stopifnot(is(model, "exprsim_vi_fit"));
+  }
+  
+  model$fixed <- prepare_fixed(fixed);
+  
+  if (!model$fixed$a) {
+    stop("q(a) is not implemented in the fixed-a ExprSim VI model.");
+  }
+  
+  niters <- 0;
+  previous_elbo <- elbo(model);
+  
+  # ELBO change
+  delta_elbo <- Inf;
+  elbos <- rep(NA, max.iter);
+  
+  # Record the initial ELBO and its components
+  initial_components <- elbo_components(model, include_fixed_a_prior=TRUE);
+  
+  model$elbo_trace <- rbind(
+    model$elbo_trace,
+    data.frame(
+      iteration = 0,
+      step = "initial",
+      elbo = initial_components$total,
+      delta = NA,
+      z = initial_components$z,
+      v_eta = initial_components$v_eta,
+      beta_delta = initial_components$beta_delta,
+      psi = initial_components$psi,
+      phi = initial_components$phi,
+      eta = initial_components$eta,
+      a_fixed = initial_components$a_fixed,
+      stringsAsFactors = FALSE
+    )
+  );
+  
+  # Convergence and stopping rule
+  while ((!is.finite(delta_elbo) || abs(delta_elbo) > tol) && niters < max.iter) {
+    niters <- niters + 1;
+    step_elbo <- previous_elbo;
+    
+    # q(beta,delta): Taylor approximation might break monotonicity!
+    if (!model$fixed$beta_delta) {
+      model <- update_q_beta_delta(model);
+      trace_result <- append_elbo_trace(
+        model,
+        niters,
+        "q(beta,delta)",
+        step_elbo,
+        allow_decrease = TRUE,
+        verbose = verbose
+      );
+      model <- trace_result$model;
+      step_elbo <- trace_result$elbo;
+    }
+    
+    # q(z,v)
+    if (!model$fixed$z_v) {
+      model <- update_q_z_v(model);
+      trace_result <- append_elbo_trace(
+        model,
+        niters,
+        "q(z,v)",
+        step_elbo,
+        verbose = verbose
+      );
+      model <- trace_result$model;
+      step_elbo <- trace_result$elbo;
+    }
+    
+    # xi_ij
+    model <- update_xi_z(model);
+    trace_result <- append_elbo_trace(
+      model,
+      niters,
+      "xi_z",
+      step_elbo,
+      verbose = verbose
+    );
+    model <- trace_result$model;
+    step_elbo <- trace_result$elbo;
+    
+    # q(eta)
+    if (!model$fixed$eta) {
+      model <- update_q_eta(model);
+      trace_result <- append_elbo_trace(
+        model,
+        niters,
+        "q(eta)",
+        step_elbo,
+        verbose = verbose
+      );
+      model <- trace_result$model;
+      step_elbo <- trace_result$elbo;
+    }
+    
+    # q(psi)
+    if (!model$fixed$psi) {
+      model <- update_q_psi(model);
+      trace_result <- append_elbo_trace(
+        model,
+        niters,
+        "q(psi)",
+        step_elbo,
+        verbose = verbose
+      );
+      model <- trace_result$model;
+      step_elbo <- trace_result$elbo;
+    }
+    
+    # xi_kj after q(psi)
+    model <- update_xi_delta(model);
+    trace_result <- append_elbo_trace(
+      model,
+      niters,
+      "xi_delta_after_psi",
+      step_elbo,
+      verbose = verbose
+    );
+    model <- trace_result$model;
+    step_elbo <- trace_result$elbo;
+    
+    # q(phi)
+    if (!model$fixed$phi) {
+      model <- update_q_phi(model);
+      trace_result <- append_elbo_trace(
+        model,
+        niters,
+        "q(phi)",
+        step_elbo,
+        verbose = verbose
+      );
+      model <- trace_result$model;
+      step_elbo <- trace_result$elbo;
+    }
+    
+    # xi_kj after q(phi)
+    model <- update_xi_delta(model);
+    trace_result <- append_elbo_trace(
+      model,
+      niters,
+      "xi_delta_after_phi",
+      step_elbo,
+      verbose = verbose
+    );
+    model <- trace_result$model;
+    step_elbo <- trace_result$elbo;
+    
+    # End of one complete VI iteration
+    current_elbo <- step_elbo;
+    delta_elbo <- current_elbo - previous_elbo;
+    elbos[niters] <- current_elbo;
+    
+    if (verbose >= 3) {
+      message("update iteration: ", niters, ",  elbo: ", current_elbo);
+      
+      if (verbose >= 4) {
+        message("delta elbo: ", delta_elbo);
+      }
+    }
+    
+    previous_elbo <- current_elbo;
+  }
+  
+  if (verbose >= 2) {
+    message("elapsed iterations: ", niters);
+  }
+  
+  if (niters > 0) {
+    model$elbo <- c(model$elbo, elbos[seq_len(niters)]);
+  }
+  
+  model
+}
+
+# Update E[m_ij], E[log m_ij], E[m_ij^-1], and E[m_ij log m_ij]
+update_m_moments <- function(model) {
+  m_moments <- compute_m_moments(
+    data = model$data,
+    expect_delta = model$params$expect_delta,
+    mu_beta = model$vparams$beta_delta$mu_beta,
+    sigma2_beta = model$vparams$beta_delta$sigma2_beta
+  );
+  
+  model$params$expect_m <- m_moments$expect_m;
+  model$params$expect_log_m <- m_moments$expect_log_m;
+  model$params$expect_m_inverse <- m_moments$expect_m_inverse;
+  model$params$expect_m_log_m <- m_moments$expect_m_log_m;
+  
+  model
+}
+
+# Update the Jensen auxiliary parameter xi_kj
+update_xi_delta <- function(model) {
+  model$params$xi_delta <- logistic(
+    outer(model$params$expect_log_one_minus_psi - model$params$expect_log_psi, 
+          model$params$expect_log_one_minus_phi, "-")
+  );
+  
+  model
+}
+
+# Update the tangent auxiliary parameter xi_ij
+update_xi_z <- function(model) {
+  model$params$xi_z <- model$params$rho + (1 - model$data$u) * (model$vparams$z$a / model$vparams$z$b);
+  
+  model
+}
+
+# Update q(beta_kj, delta_kj)
+update_q_beta_delta <- function(model) {
+  J <- model$data$J;
+  K <- model$data$K;
+  C_ik <- model$data$C;
+  C_ik_squared <- C_ik * C_ik;
+  gamma <- model$params$gamma;
+  tau <- model$params$tau;
+  
+  for (j in seq_len(J)) {
+    
+    # E[log z_ij | v_ij=1]
+    expect_log_z_given_v_one <- digamma(model$vparams$z$a[, j]) - log(model$vparams$z$b[, j]);
+    
+    # Loop through perturbations
+    for (k in seq_len(K)) {
+      
+      # Current E[n_ij] = E[log m_ij]
+      expect_n <- model$params$expect_log_m[, j];
+      gamma_exp_expect_n <- gamma * exp(expect_n);
+      
+      if (any(!is.finite(gamma_exp_expect_n)) || any(gamma_exp_expect_n <= 0)) {
+        stop("Non-finite gamma*exp(E[n]) in q(beta,delta) update.");
+      }
+      
+      # First derivative
+      f_first <- model$params$expect_v[, j] * gamma_exp_expect_n * (log(gamma) + expect_log_z_given_v_one - digamma(gamma_exp_expect_n));
+      
+      # Second derivative
+      f_second <- model$params$expect_v[, j] * gamma_exp_expect_n * (log(gamma) + expect_log_z_given_v_one - digamma(gamma_exp_expect_n) -
+                                                                       gamma_exp_expect_n * trigamma(gamma_exp_expect_n));
+      
+      # Save old E[delta_kj beta_kj]
+      old_expect_delta_beta <- model$params$expect_delta_beta[k, j];
+      C_k <- C_ik[, k];
+      C_k_squared <- C_ik_squared[, k];
+      
+      # delta_{beta_kj}^2
+      precision_beta <- tau - sum(C_k_squared * f_second);
+      
+      if (!is.finite(precision_beta) || precision_beta <= 0) {
+        stop("Taylor q(beta,delta) update is not normalizable at k=", k, ", j=", j, ": precision = ", precision_beta, ".");
+      }
+      
+      sigma2_beta <- 1 / precision_beta;
+      
+      # mu_{beta_kj}
+      mu_beta <- sigma2_beta * sum(C_k * f_first - C_k_squared * old_expect_delta_beta * f_second);
+      
+      # Jensen auxiliary parameter
+      xi_delta <- model$params$xi_delta[k, j];
+      H_xi_delta <- bern_h(xi_delta);
+      
+      # delta_kj = 0: log c_0
+      log_c_zero <-
+        xi_delta * model$params$expect_log_one_minus_psi[k] +
+        (1 - xi_delta) * model$params$expect_log_psi[k] +
+        (1 - xi_delta) * model$params$expect_log_one_minus_phi[j] +
+        H_xi_delta + 0.5 * (log(2 * pi) - log(tau));
+      
+      # delta_kj = 1: log c_1
+      log_c_one <-
+        model$params$expect_log_psi[k] +
+        model$params$expect_log_phi[j] +
+        mu_beta^2 / (2 * sigma2_beta) +
+        0.5 * log(2 * pi * sigma2_beta);
+      
+      # Normalize the two weights
+      log_denominator <- log_sum_exp(c(log_c_zero, log_c_one));
+      
+      # E[delta_kj]
+      expect_delta <- exp(log_c_one - log_denominator);
+      
+      # Save the new q(beta,delta) parameters
+      model$vparams$beta_delta$mu_beta[k, j] <- mu_beta;
+      model$vparams$beta_delta$sigma2_beta[k, j] <- sigma2_beta;
+      model$params$expect_delta[k, j] <- expect_delta;
+      
+      # E[delta_kj beta_kj]
+      new_expect_delta_beta <- expect_delta * mu_beta;
+      model$params$expect_delta_beta[k, j] <- new_expect_delta_beta;
+      model$params$expect_beta[k, j] <- new_expect_delta_beta;
+      
+      # E[(beta_kj)^2]
+      model$params$expect_beta2[k, j] <- (1 - expect_delta) / tau + expect_delta * (mu_beta^2 + sigma2_beta);
+      
+      # Only target column j changes after this coordinate update
+      model$params$expect_log_m[, j] <- expect_n + C_k * (new_expect_delta_beta - old_expect_delta_beta);
+    }
+  }
+  
+  # Refresh all m moments
+  model <- update_m_moments(model);
+  
+  model
+}
+
+# Stirling lower-bound
+z_shape_normalizer_lower_bound <- function(model) {
+  with(model$params,
+       -gamma * expect_m_log_m + 0.5 * expect_log_m + gamma * expect_m + 0.5 * log(gamma / (2 * pi)) - expect_m_inverse / (12 * gamma))
+}
+
+# Update q(z_ij, v_ij)
+update_q_z_v <- function(model) {
+  x <- model$data$x;
+  u <- model$data$u;
+  N <- model$data$N;
+  J <- model$data$J;
+  gamma <- model$params$gamma;
+  rho <- model$params$rho;
+  xi_z <- model$params$xi_z;
+  
+  # a_{z_{ij}}
+  a_z <- x + gamma * model$params$expect_m;
+  
+  # b_{z_{ij}}
+  b_z <- gamma + ((rho + x) * (1 - u)) / xi_z;
+  
+  if (
+    any(!is.finite(a_z)) || any(a_z <= 0) ||
+    any(!is.finite(b_z)) || any(b_z <= 0)
+  ) {
+    stop("Invalid Gamma parameters in q(z|v=1) update.");
+  }
+  
+  # Store new q(z|v=1)
+  model$vparams$z$a <- a_z;
+  model$vparams$z$b <- b_z;
+  
+  # E[log(eta_j)]
+  expect_log_eta_matrix <- matrix(model$params$expect_log_eta, nrow = N, ncol = J, byrow = TRUE);
+  
+  # v_ij = 1
+  log_c_one <- expect_log_eta_matrix + z_shape_normalizer_lower_bound(model) - (rho + x) * log(xi_z) - ((rho + x) * (rho - xi_z)) / xi_z + lgamma(a_z) - a_z * log(b_z);
+  
+  expect_v <- matrix(1, N, J);
+  zero_index <- which(x == 0, arr.ind=TRUE);
+  
+  if (nrow(zero_index) > 0) {
+    for (r in seq_len(nrow(zero_index))) {
+      i <- zero_index[r, 1];
+      j <- zero_index[r, 2];
+      
+      # v_ij = 0
+      log_c_zero <- model$params$expect_log_one_minus_eta[j] - rho * log(rho);
+      
+      # Normalization
+      log_denominator <- log_sum_exp(c(log_c_zero, log_c_one[i, j]));
+      
+      # E[v_ij]
+      expect_v[i, j] <- exp(log_c_one[i, j] - log_denominator);
+    }
+  }
+  
+  model$params$expect_v <- expect_v;
+  
+  model
+}
+
+# Update q(eta_j)
+update_q_eta <- function(model) {
+  model$vparams$eta <- list(
+    a = model$params$alpha_eta + colSums(model$params$expect_v),
+    b = model$params$beta_eta + model$data$N - colSums(model$params$expect_v)
+  );
+  
+  model$params$expect_log_eta <- expect_log_x_beta(model$vparams$eta);
+  model$params$expect_log_one_minus_eta <- expect_log_1mx_beta(model$vparams$eta);
+  
+  model
+}
+
+# Update q(psi_k)
+update_q_psi <- function(model) {
+  expect_delta <- model$params$expect_delta;
+  xi_delta <- model$params$xi_delta;
+  
+  model$vparams$psi <- list(
+    a = model$params$alpha_psi +
+      rowSums(expect_delta + (1 - expect_delta) * (1 - xi_delta)),
+    b = model$params$beta_psi +
+      rowSums((1 - expect_delta) * xi_delta)
+  );
+  
+  model$params$expect_log_psi <- expect_log_x_beta(model$vparams$psi);
+  model$params$expect_log_one_minus_psi <- expect_log_1mx_beta(model$vparams$psi);
+  
+  model
+}
+
+# Update q(phi_j)
+update_q_phi <- function(model) {
+  expect_delta <- model$params$expect_delta;
+  xi_delta <- model$params$xi_delta;
+  
+  model$vparams$phi <- list(
+    a = model$params$alpha_phi + colSums(expect_delta),
+    b = model$params$beta_phi +
+      colSums((1 - expect_delta) * (1 - xi_delta))
+  );
+  
+  model$params$expect_log_phi <- expect_log_x_beta(model$vparams$phi);
+  model$params$expect_log_one_minus_phi <- expect_log_1mx_beta(model$vparams$phi);
+  
+  model
+}
+
+# Complete ELBO lower bound
+elbo_components <- function(model, include_fixed_a_prior=TRUE) {
+  x <- model$data$x;
+  u <- model$data$u;
+  N <- model$data$N;
+  J <- model$data$J;
+  K <- model$data$K;
+  
+  with(model$params, {
+    a_z <- model$vparams$z$a;
+    b_z <- model$vparams$z$b;
+    expect_log_z_given_v_one <- digamma(a_z) - log(b_z);
+    expect_z_given_v_one <- a_z / b_z;
+    
+    # E[log p(x|z)] + E[log p(z|m,v)] - E[log q(z|v)]
+    observation_constant <- lgamma(x + rho) - lgamma(x + 1) - lgamma(rho) + rho * log(rho) + x_log_y(x, 1 - u);
+    observation_auxiliary <- -(rho + x) * log(xi_z) - ((rho + x) / xi_z) * (rho + (1 - u) * expect_z_given_v_one - xi_z);
+    latent_shape_lower_bound <- z_shape_normalizer_lower_bound(model);
+    z_variational_part <- (x + gamma * expect_m - a_z) * expect_log_z_given_v_one - gamma * expect_z_given_v_one - a_z * log(b_z) + lgamma(a_z) + a_z;
+    z_block <- sum(expect_v * (observation_constant + observation_auxiliary + latent_shape_lower_bound + z_variational_part));
+    
+    # E[log p(v|eta)] - E[log q(v)]
+    v_eta_block <- sum(sweep(expect_v, 2, expect_log_eta, "*") + sweep(1 - expect_v, 2, expect_log_one_minus_eta, "*")) + entropy_bern_d(expect_v)
+    
+    # E[log p(beta)] - E[log q(beta|delta)]
+    mu_beta <- model$vparams$beta_delta$mu_beta;
+    sigma2_beta <- model$vparams$beta_delta$sigma2_beta;
+    beta_conditional_block <- sum(-0.5 * expect_delta * (tau * (mu_beta^2 + sigma2_beta) - 1 - log(tau * sigma2_beta)));
+    
+    # -E[log q(delta)]
+    delta_variational_block <- entropy_bern_d(expect_delta);
+    
+    # Jensen lower bound for E[log p(delta|psi,phi)]
+    expect_log_psi_matrix <- matrix(expect_log_psi, nrow = K, ncol = J);
+    expect_log_one_minus_psi_matrix <- matrix(expect_log_one_minus_psi, nrow = K, ncol = J);
+    expect_log_phi_matrix <- matrix(expect_log_phi, nrow = K, ncol = J, byrow = TRUE);
+    expect_log_one_minus_phi_matrix <- matrix(expect_log_one_minus_phi, nrow = K, ncol = J, byrow = TRUE);
+    H_xi_delta <- bern_h(xi_delta);
+    
+    delta_prior_block <- sum(expect_delta * (expect_log_psi_matrix + expect_log_phi_matrix) +
+                               (1 - expect_delta) * (xi_delta * expect_log_one_minus_psi_matrix +
+                                                       (1 - xi_delta) * expect_log_psi_matrix +
+                                                       (1 - xi_delta) * expect_log_one_minus_phi_matrix + H_xi_delta));
+    
+    beta_delta_block <- beta_conditional_block + delta_variational_block + delta_prior_block;
+    
+    # E[log p] - E[log q] for the Beta variational factors
+    psi_block <- beta_prior_minus_q(model$vparams$psi, alpha_psi, beta_psi);
+    phi_block <- beta_prior_minus_q(model$vparams$phi, alpha_phi, beta_phi);
+    eta_block <- beta_prior_minus_q(model$vparams$eta, alpha_eta, beta_eta);
+    
+    # a is fixed in the first implementation, so there is no q(a) term
+    a_block <- if (include_fixed_a_prior) {
+      log_prior_a(model$data$a, alpha)
+    } else {
+      0
+    };
+    
+    total <- z_block + v_eta_block + beta_delta_block + psi_block + phi_block + eta_block + a_block;
+    
+    list(
+      z = z_block,
+      v_eta = v_eta_block,
+      beta_delta = beta_delta_block,
+      psi = psi_block,
+      phi = phi_block,
+      eta = eta_block,
+      a_fixed = a_block,
+      total = total
+    )
+  })
+}
+
+# Variational evidence lower bound
+elbo <- function(model) {
+  elbo_components(model, include_fixed_a_prior=TRUE)$total
+}
+
+# Store the ELBO after one coordinate update
+append_elbo_trace <- function(model, iteration, step, previous_elbo, allow_decrease=FALSE, verbose=1) {
+  components <- elbo_components(model, include_fixed_a_prior=TRUE);
+  current_elbo <- components$total;
+  delta_elbo <- current_elbo - previous_elbo;
+  
+  trace_row <- data.frame(
+    iteration = iteration,
+    step = step,
+    elbo = current_elbo,
+    delta = delta_elbo,
+    z = components$z,
+    v_eta = components$v_eta,
+    beta_delta = components$beta_delta,
+    psi = components$psi,
+    phi = components$phi,
+    eta = components$eta,
+    a_fixed = components$a_fixed,
+    stringsAsFactors = FALSE
+  );
+  
+  model$elbo_trace <- rbind(model$elbo_trace, trace_row);
+  
+  if (verbose >= 4) {
+    if (!allow_decrease && is.finite(delta_elbo) && delta_elbo < 0) {
+      message("WARN: ELBO decreased after ", step, ": ", delta_elbo);
+    }
+    
+    if (allow_decrease && is.finite(delta_elbo) && delta_elbo < 0) {
+      message("NOTE: ELBO decreased after ", step, " (Taylor q(beta,delta) update): ", delta_elbo
+      );
+    }
+    
+    message("delta elbo after ", step, ": ", delta_elbo);
+  }
+  
+  list(model = model, elbo = current_elbo)
+}
+```
+
+```{r}
+### Functions from github that are reused directly
+# Root mean squared error
+rmse <- function(yhat, y) {
+  sqrt(mean((yhat - y)^2))
+}
+
+# Evaluate variable selection
+evaluate_selection <- function(pred, truth, cut=0.5) {
+  stopifnot(length(pred) == length(truth))
+  
+  n <- length(truth);
+  
+  pred.pos <- pred > cut;
+  pred.neg <- pred <= cut;
+  truth.pos <- truth > cut;
+  truth.neg <- truth <= cut;
+  
+  n.truth.pos <- sum(truth.pos);
+  
+  tp <- sum(pred.pos & truth.pos, na.rm=TRUE);
+  tn <- sum(pred.neg & truth.neg, na.rm=TRUE);
+  fp <- sum(pred.pos & truth.neg, na.rm=TRUE);
+  fn <- sum(pred.neg & truth.pos, na.rm=TRUE);
+  
+  list(
+    n_pos = n.truth.pos,
+    n_neg = n - n.truth.pos,
+    n_called = sum(pred.pos),
+    sensitivity = tp / sum(truth.pos),
+    specificity = tn / sum(truth.neg),
+    ppv = tp / sum(pred.pos),
+    npv = tn / sum(pred.neg)
+  )
+}
+```
+
+```{r}
+# Functions to help search for a better local optimum
+# Get the final ELBO of a fitted model
+final_elbo <- function(model) {
+  if (length(model$elbo) > 0) {
+    return(model$elbo[length(model$elbo)]);
+  }
+
+  elbo(model)
+}
+
+# Perturb a fitted model by activating nu currently inactive edges
+perturb_model <- function(model, nu=1) {
+  stopifnot(is(model, "exprsim_vi_fit"));
+  
+  inactive_index <- which(model$params$expect_delta <= 0.5);
+  
+  if (length(inactive_index) == 0 || nu <= 0) {
+    return(model);
+  }
+  
+  if (nu >= length(inactive_index)) {
+    selected_index <- inactive_index;
+  } else {
+    selected_index <- sample(inactive_index, nu);
+  }
+  
+  model$params$expect_delta[selected_index] <- 1;
+  model$vparams$beta_delta$mu_beta[selected_index] <- rnorm(length(selected_index), mean=0, sd=1 / sqrt(model$params$tau));
+  model$vparams$beta_delta$sigma2_beta[selected_index] <- 1 / model$params$tau;
+  
+  expect_delta <- model$params$expect_delta;
+  mu_beta <- model$vparams$beta_delta$mu_beta;
+  sigma2_beta <- model$vparams$beta_delta$sigma2_beta;
+  
+  model$params$expect_delta_beta <- expect_delta * mu_beta;
+  model$params$expect_beta <- expect_delta * mu_beta;
+  model$params$expect_beta2 <- (1 - expect_delta) / model$params$tau + expect_delta * (mu_beta^2 + sigma2_beta);
+  
+  model <- update_m_moments(model);
+  model <- update_q_z_v(model);
+  model <- update_xi_z(model);
+  model <- update_q_eta(model);
+  
+  model
+}
+
+# Sample an ExprSim initialization from the model priors
+sample_model <- function(data, hparams) {
+  if (!is(data, "exprsim_vi_data")) {
+    data <- prepare_data(data);
+  }
+
+  N <- data$N;
+  J <- data$J;
+  K <- data$K;
+
+  psi <- rbeta(K, hparams$alpha_psi, hparams$beta_psi);
+  phi <- rbeta(J, hparams$alpha_phi, hparams$beta_phi);
+  eta <- rbeta(J, hparams$alpha_eta, hparams$beta_eta);
+  edge_prob <- outer(psi, phi, "*");
+  expect_delta <- matrix(rbinom(K * J, size=1, prob=as.vector(edge_prob)), nrow=K, ncol=J);
+  mu_beta <- matrix(rnorm(K * J, mean=0, sd=1 / sqrt(hparams$tau)), nrow=K, ncol=J);
+  sigma2_beta <- matrix(1 / hparams$tau, K, J);
+  expect_v <- matrix(rep(eta, each=N), N, J);
+  expect_v[data$x > 0] <- 1;
+
+  params0 <- list(expect_delta = expect_delta, mu_beta = mu_beta, sigma2_beta = sigma2_beta, expect_v = expect_v);
+
+  make_model(data, params0, hparams)
+}
+
+# Compute normalized weights from ELBO values
+model_posterior <- function(levidence, lprior=NULL) {
+  if (is.null(lprior)) {
+    lprior <- log(1 / length(levidence));
+  }
+
+  ljoint <- lprior + levidence;
+
+  exp(ljoint - log_sum_exp(ljoint))
+}
+
+# Search over multiple ExprSim initializations
+exprsim_vi_search <- function(data, hparams, n_starts=10, fixed=NULL, 
+                              tol=1e-2, max.iter=50, verbose=1, seed=NULL) {
+  if (!is.null(seed)) {
+    set.seed(seed);
+  }
+
+  if (!is(data, "exprsim_vi_data")) {
+    data <- prepare_data(data);
+  }
+
+  if (n_starts < 1) {
+    stop("n_starts must be at least 1.");
+  }
+
+  search_elbo <- rep(NA, n_starts);
+
+  # First fit: default initialization
+  best_model <- exprsim_vi_local(
+    data=data,
+    hparams=hparams,
+    fixed=fixed,
+    verbose=if (verbose >= 4) verbose else 0,
+    tol=tol,
+    max.iter=max.iter
+  );
+
+  search_elbo[1] <- final_elbo(best_model);
+  best_elbo <- search_elbo[1];
+  best_start <- 1;
+
+  if (verbose >= 2) {
+    message("search start: 1,  elbo: ", search_elbo[1]);
+  }
+
+  # Remaining fits: prior-based random initializations
+  if (n_starts > 1) {
+    for (s in 2:n_starts) {
+      initial_model <- sample_model(data, hparams);
+
+      candidate_model <- exprsim_vi_local(
+        model=initial_model,
+        fixed=fixed,
+        verbose=if (verbose >= 4) verbose else 0,
+        tol=tol,
+        max.iter=max.iter
+      );
+
+      candidate_elbo <- final_elbo(candidate_model);
+      search_elbo[s] <- candidate_elbo;
+
+      if (verbose >= 2) {
+        message("search start: ", s, ",  elbo: ", candidate_elbo);
+      }
+
+      if (is.finite(candidate_elbo) &&
+          (!is.finite(best_elbo) || candidate_elbo > best_elbo)) {
+        best_model <- candidate_model;
+        best_elbo <- candidate_elbo;
+        best_start <- s;
+      }
+    }
+  }
+
+  best_model$search <- list(
+    elbo = search_elbo,
+    best_start = best_start,
+    n_starts = n_starts
+  );
+
+  if (verbose >= 1) {
+    message("best search start: ", best_start, ",  elbo: ", best_elbo);
+  }
+
+  best_model
+}
+```
+
+```{r}
+# Fit VI to Norman 2019 subsample
+# Load data
+norman <- readH5AD("/Users/zhangrui/Desktop/precmat/Norman_2019.h5ad", reader="R", use_hdf5=TRUE)
+
+# Keep control + single-gene perturbations
+perturb <- as.character(colData(norman)$perturbation_name)
+keep_single <- !is.na(perturb) & (perturb == "control" | !grepl("\\+", perturb))
+sce_single <- norman[, keep_single]
+
+# Raw counts
+C <- assay(sce_single, "counts")
+
+# Remove zero-library-size cells
+lib_size <- Matrix::colSums(C)
+keep_cells <- lib_size > 0
+sce_single <- sce_single[, keep_cells]
+
+# Use raw counts
+C <- assay(sce_single, "counts")
+ptb_raw <- as.character(colData(sce_single)$perturbation_name)
+
+# Genes and single-gene perturbations
+genes <- rownames(sce_single)
+perts <- setdiff(sort(unique(ptb_raw)), "control")
+
+# Subsample
+set.seed(1)
+
+N_use <- 300
+J_use <- 200
+K_use <- 40
+
+# Regulators that are also present in expression matrix
+regulator_gene_names <- intersect(perts, genes)
+
+# Select K regulators
+regulator_use <- sample(regulator_gene_names, K_use, replace=FALSE)
+
+# Select the remaining J-K genes from all genes except selected regulators
+other_gene_names <- setdiff(genes, regulator_use)
+other_genes <- sample(other_gene_names, J_use - K_use, replace=FALSE)
+
+# First K columns must correspond to regulators
+genes_use <- c(regulator_use, other_genes)
+
+# Cell use = controls + selected perturbations
+cell_pool <- which(ptb_raw %in% c("control", regulator_use))
+cells_use <- sample(cell_pool, min(N_use, length(cell_pool)), replace=FALSE)
+
+# Perturbation use
+pert_use <- ptb_raw[cells_use]
+
+# N x J raw UMI count matrix
+x <- as.matrix(t(C[genes_use, cells_use, drop=FALSE]))
+storage.mode(x) <- "double"
+
+N <- nrow(x)
+J <- ncol(x)
+K <- K_use
+
+# Perturbation indicator
+u_indicator <- matrix(0, nrow=N, ncol=J, dimnames=list(NULL, genes_use))
+
+for (k in seq_len(K)) {
+  u_indicator[, k] <- as.numeric(pert_use == regulator_use[k])
+}
+
+# Generate hyperparameters
+make_hparams <- function(settings) {
+  list(
+    gamma=settings$gamma, 
+    rho=settings$rho, 
+    alpha=settings$alpha, 
+    tau=settings$tau,
+    alpha_psi=settings$mu_psi * settings$lambda_psi,
+    beta_psi=(1 - settings$mu_psi) * settings$lambda_psi,
+    alpha_phi=settings$mu_phi * settings$lambda_phi,
+    beta_phi=(1 - settings$mu_phi) * settings$lambda_phi,
+    alpha_eta=settings$mu_eta * settings$lambda_eta,
+    beta_eta=(1 - settings$mu_eta) * settings$lambda_eta
+  )
+}
+
+# Hyperparameter selection
+hparams_select <- function(settings) {
+  set.seed(123)
+
+  # Fixed u and a matrix
+  u <- u_indicator * settings$u_strength
+  a <- matrix(rgamma(N * K, shape=settings$alpha, rate=settings$alpha), nrow=N, ncol=K)
+
+  # Data input
+  data_candidate <- list(x=x, u=u, a=a, K=K)
+  hparams_candidate <- make_hparams(settings)
+
+  # Run VI
+  fit_candidate <- tryCatch(
+    exprsim_vi(data=data_candidate, hparams=hparams_candidate,
+               tol=1e-3, max.iter=100, verbose=0),
+    error=function(e) {
+      message("Candidate failed: ", conditionMessage(e))
+      NULL
+    }
+  )
+
+  if (is.null(fit_candidate)) {
+    return(-Inf)
+  }
+
+  final_elbo(fit_candidate)
+}
+
+# Search one scalar hyperparameter while holding all others fixed
+search_one_hparams <- function(settings, parameter, grid, stage) {
+  scores <- rep(-Inf, length(grid))
+
+  # Get ELBO For each candidate
+  for (g in seq_along(grid)) {
+    candidate <- settings
+    candidate[[parameter]] <- grid[g]
+    scores[g] <- hparams_select(candidate)
+  }
+
+  if (!any(is.finite(scores))) {
+    stop("All candidates failed for ", parameter, ".")
+  }
+
+  # Find largest ELBO
+  best <- which.max(scores)
+  
+  # Update the current settings
+  settings[[parameter]] <- grid[best]
+
+  cat(stage, ": best ", parameter, " = ", grid[best], ", ELBO = ", scores[best], "\n", sep="")
+
+  settings
+}
+
+# Search mu and lambda for one Beta prior
+search_hparams_beta <- function(settings, name, mu_grid, lambda_grid, stage) {
+  
+  # A Beta prior has two hyperparameters
+  grid <- expand.grid(mu=mu_grid, lambda=lambda_grid)
+  scores <- rep(-Inf, nrow(grid))
+
+  mu_name <- paste0("mu_", name)
+  lambda_name <- paste0("lambda_", name)
+
+  # Try every Beta pair and get ELBO
+  for (g in seq_len(nrow(grid))) {
+    candidate <- settings
+    candidate[[mu_name]] <- grid$mu[g]
+    candidate[[lambda_name]] <- grid$lambda[g]
+    scores[g] <- hparams_select(candidate)
+  }
+
+  if (!any(is.finite(scores))) {
+    stop("All candidates failed for ", name, ".")
+  }
+
+  # Select the best pair
+  best <- which.max(scores)
+  
+  # Update the current settings
+  settings[[mu_name]] <- grid$mu[best]
+  settings[[lambda_name]] <- grid$lambda[best]
+
+  cat(stage, ": best ", name, " mu = ", grid$mu[best], ", lambda = ", grid$lambda[best], ", ELBO = ", scores[best], "\n", sep="")
+
+  settings
+}
+
+# Hyperparameter grids
+u_grid <- c(0.01, 0.05, 0.1, 0.2, 0.5, 0.9)
+alpha_grid <- c(0.5, 1, 5, 10, 50, 100)
+gamma_grid <- c(0.5, 1, 5, 10, 50)
+rho_grid <- c(0.5, 1, 5, 10, 50, 100)
+tau_grid <- c(1000, 2000, 3000, 5000, 10000)
+mu_grid <- seq(0.1, 0.9, by=0.1)
+lambda_grid <- c(1, 3, 10, 30, 100)
+
+# Initial values
+settings <- list(u_strength=0.5, alpha=10, gamma=10, rho=10, tau=1000, 
+                 mu_psi=0.5, lambda_psi=10, mu_phi=0.5, 
+                 lambda_phi=10, mu_eta=0.5, lambda_eta=10)
+
+# Two rounds to search for hyperparameters that maximize ELBO
+for (round in 1:2) {
+  cat("\nGrid search round ", round, "\n", sep="")
+
+  # Store the starting settings for that round
+  old_settings <- settings
+  stage <- paste0("round_", round)
+
+  # tau first because small tau can give non-positive Taylor precision
+  settings <- search_one_hparams(settings, "tau", tau_grid, stage)
+  settings <- search_one_hparams(settings, "gamma", gamma_grid, stage)
+  settings <- search_one_hparams(settings, "rho", rho_grid, stage)
+  settings <- search_one_hparams(settings, "u_strength", u_grid, stage)
+  settings <- search_one_hparams(settings, "alpha", alpha_grid, stage)
+  settings <- search_hparams_beta(settings, "psi", mu_grid, lambda_grid, stage)
+  settings <- search_hparams_beta(settings, "phi", mu_grid, lambda_grid, stage)
+  settings <- search_hparams_beta(settings, "eta", mu_grid, lambda_grid, stage)
+
+  # Stop when an entire round changes nothing
+  if (identical(settings, old_settings)) {
+    break
+  }
+}
+
+# Search locally around the winning hyperparameter values
+cat("\nRefinement round\n")
+u_refined <- sort(unique(pmin(0.99, pmax(0.01, settings$u_strength + c(-0.05, 0, 0.05)))))
+alpha_refined <- settings$alpha * c(1 / sqrt(3), 1, sqrt(3))
+gamma_refined <- settings$gamma * c(1 / sqrt(3), 1, sqrt(3))
+rho_refined <- settings$rho * c(1 / sqrt(3), 1, sqrt(3))
+tau_refined <- settings$tau * c(1 / sqrt(3), 1, sqrt(3))
+mu_psi_refined <- sort(unique(pmin(0.9, pmax(0.1, settings$mu_psi + c(-0.05, 0, 0.05)))))
+mu_phi_refined <- sort(unique(pmin(0.9, pmax(0.1, settings$mu_phi + c(-0.05, 0, 0.05)))))
+mu_eta_refined <- sort(unique(pmin(0.9, pmax(0.1, settings$mu_eta + c(-0.05, 0, 0.05)))))
+lambda_psi_refined <- settings$lambda_psi * c(1 / sqrt(3), 1, sqrt(3))
+lambda_phi_refined <- settings$lambda_phi * c(1 / sqrt(3), 1, sqrt(3))
+lambda_eta_refined <- settings$lambda_eta * c(1 / sqrt(3), 1, sqrt(3))
+
+# Final selected settings
+settings <- search_one_hparams(settings, "tau", tau_refined, "refined")
+settings <- search_one_hparams(settings, "gamma", gamma_refined, "refined")
+settings <- search_one_hparams(settings, "rho", rho_refined, "refined")
+settings <- search_one_hparams(settings, "u_strength", u_refined, "refined")
+settings <- search_one_hparams(settings, "alpha", alpha_refined, "refined")
+settings <- search_hparams_beta(settings, "psi", mu_psi_refined, lambda_psi_refined, "refined")
+settings <- search_hparams_beta(settings, "phi", mu_phi_refined, lambda_phi_refined, "refined")
+settings <- search_hparams_beta(settings, "eta", mu_eta_refined, lambda_eta_refined, "refined")
+
+# Best hyperparameters
+cat("\nBest settings:\n")
+best_settings <- settings
+print(best_settings)
+
+cat("\nFinal hyperparameters:\n")
+final_hparams <- make_hparams(best_settings)
+print(final_hparams)
+
+# Final data using selected u and alpha
+set.seed(123)
+final_u <- u_indicator * best_settings$u_strength
+final_a <- matrix(rgamma(N * K, shape=best_settings$alpha, rate=best_settings$alpha), nrow=N, ncol=K)
+final_data <- list(x=x, u=final_u, a=final_a, K=K)
+
+# Final VI fit with different VI initializations
+fit <- exprsim_vi_search(data=final_data, hparams=final_hparams, n_starts=10, tol=1e-3, max.iter=100, verbose=2, seed=123)
+print(fit)
+
+# Results
+# Inferred edge probability
+delta_hat <- coef(fit, "delta")
+
+# Effect size conditional on the regulatory edge existing
+beta_mu_hat <- coef(fit, "beta_mu")
+
+# Combine edge confidence and effect magnitude E[delta beta]
+beta_mean_hat <- coef(fit, "beta_mean")
+
+# Add gene names back
+rownames(delta_hat) <- regulator_use
+colnames(delta_hat) <- genes_use
+rownames(beta_mu_hat) <- regulator_use
+colnames(beta_mu_hat) <- genes_use
+rownames(beta_mean_hat) <- regulator_use
+colnames(beta_mean_hat) <- genes_use
+
+# Fianl ELBO
+cat("\nFinal ELBO:\n")
+print(final_elbo(fit))
+
+cat("\nBest final model start:\n")
+print(fit$search$best_start)
+
+cat("\nELBO for every start:\n")
+print(fit$search$elbo)
+
+cat("\nLast 20 ELBO updates:\n")
+print(tail(fit$elbo_trace, 20))
+```
