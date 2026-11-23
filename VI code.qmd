@@ -19,11 +19,6 @@ library(rlang)
 logistic <- function(x) {
   1 / (1 + exp(-x))
 }
-
-log_sum_exp <- function(x) {
-  x.max <- max(x);
-  log(sum(exp(x - x.max))) + x.max
-}
 ```
 
 ```{r}
@@ -44,13 +39,6 @@ expect_log_1mx_beta <- function(param) {
   with(param, digamma(b) - digamma(a + b))
 }
 
-# -E[log q] for a Bernoulli distribution, with direct parameterization
-entropy_bern_d <- function(prob) {
-  log_q_zero <- ifelse(prob == 1, 0, -(1 - prob) * log(1 - prob));
-  log_q_one <- ifelse(prob == 0, 0, -prob * log(prob));
-  sum(log_q_zero + log_q_one)
-}
-
 # elementwise version of -E[log q] for a Bernoulli distribution
 bern_h <- function(prob) {
   out <- numeric(length(prob));
@@ -60,6 +48,11 @@ bern_h <- function(prob) {
   out[idx_less_than_one] <- out[idx_less_than_one] - (1 - prob[idx_less_than_one]) * log(1 - prob[idx_less_than_one]);
   dim(out) <- dim(prob);
   out
+}
+
+# -E[log q] for a Bernoulli distribution, with direct parameterization
+entropy_bern_d <- function(prob) {
+  sum(bern_h(prob))
 }
 
 # multiplier * log(log_argument)
@@ -244,7 +237,7 @@ exprsim_vi <- function(data, hparams, model=NULL, tol=1e-2, max.iter=2000, verbo
 }
 
 # initialize an exprsim_vi_fit object
-make_model <- function(data, params0=NULL, hparams) {
+make_model <- function(data, params0=NULL, hparams, fixed=NULL) {
   if (!is(data, "exprsim_vi_data")) {
     data <- prepare_data(data);
   }
@@ -254,6 +247,7 @@ make_model <- function(data, params0=NULL, hparams) {
   model <- list(data = data,
                 params = c(prepared_params$params, hparams),
                 vparams = prepared_params$vparams,
+                fixed = prepare_fixed(fixed),
                 elbo = numeric(0),
                 elbo_trace = data.frame());
   
@@ -267,11 +261,15 @@ make_model <- function(data, params0=NULL, hparams) {
   model$params$expect_log_eta <- expect_log_x_beta(model$vparams$eta);
   model$params$expect_log_one_minus_eta <- expect_log_1mx_beta(model$vparams$eta);
   
-  # initialize auxiliary quantities and variational blocks
+  # initialize auxiliary quantities and unfixed variational blocks
   model <- update_xi_delta(model);
-  model <- update_q_z_v(model);
+  if (!model$fixed$z_v) {
+    model <- update_q_z_v(model);
+  }
   model <- update_xi_z(model);
-  model <- update_q_eta(model);
+  if (!model$fixed$eta) {
+    model <- update_q_eta(model);
+  }
   
   structure(model, class="exprsim_vi_fit")
 }
@@ -330,12 +328,11 @@ exprsim_vi_local <- function(data=NULL, hparams=NULL, params0=NULL, fixed=NULL, 
   }
   
   if (is.null(model)) {
-    model <- make_model(data, params0, hparams);
+    model <- make_model(data, params0, hparams, fixed = fixed);
   } else {
     stopifnot(is(model, "exprsim_vi_fit"));
+    model$fixed <- prepare_fixed(fixed);
   }
-  
-  model$fixed <- prepare_fixed(fixed);
   
   niters <- 0;
   previous_elbo <- elbo(model);
@@ -344,26 +341,28 @@ exprsim_vi_local <- function(data=NULL, hparams=NULL, params0=NULL, fixed=NULL, 
   delta_elbo <- Inf;
   elbos <- rep(NA, max.iter);
   
-  # record initial ELBO
-  initial_components <- elbo_components(model);
-  
-  model$elbo_trace <- rbind(
-    model$elbo_trace,
-    data.frame(
-      iteration = 0,
-      step = "initial",
-      elbo = initial_components$total,
-      delta = NA,
-      z = initial_components$z,
-      v_eta = initial_components$v_eta,
-      beta_delta = initial_components$beta_delta,
-      psi = initial_components$psi,
-      phi = initial_components$phi,
-      eta = initial_components$eta,
-      a = initial_components$a,
-      stringsAsFactors = FALSE
-    )
-  );
+  # record initial ELBO only for a fresh model
+  if (nrow(model$elbo_trace) == 0) {
+    initial_components <- elbo_components(model);
+    
+    model$elbo_trace <- rbind(
+      model$elbo_trace,
+      data.frame(
+        iteration = 0,
+        step = "initial",
+        elbo = initial_components$total,
+        delta = NA,
+        z = initial_components$z,
+        v_eta = initial_components$v_eta,
+        beta_delta = initial_components$beta_delta,
+        psi = initial_components$psi,
+        phi = initial_components$phi,
+        eta = initial_components$eta,
+        a = initial_components$a,
+        stringsAsFactors = FALSE
+      )
+    );
+  }
   
   # convergence and stopping rule
   while ((!is.finite(delta_elbo) || abs(delta_elbo) > tol) && niters < max.iter) {
@@ -476,7 +475,7 @@ update_q_a <- function(model) {
   expect_n <- model$params$expect_log_m;
   
   one_minus_u_sq <- (1 - u[, seq_len(K), drop = FALSE])^2;
-  var_n <- (one_minus_u_sq * model$params$expect_a2) %*% expect_delta_beta2 - (one_minus_u_sq * model$params$expect_a^2) %*% (expect_delta_beta^2);
+  var_n <- pmax((one_minus_u_sq * model$params$expect_a2) %*% expect_delta_beta2 - (one_minus_u_sq * model$params$expect_a^2) %*% (expect_delta_beta^2), 0);
   
   for (k in seq_len(K)) {
     gamma_exp_expect_n <- gamma * exp(expect_n);
@@ -507,6 +506,10 @@ update_q_a <- function(model) {
       one_minus_u_k_sq * old_expect_a_k * as.vector(f_second %*% (ed_beta_k^2));
     C_k <- one_minus_u_k_sq * as.vector(f_second %*% ed_beta2_k);
     
+    if (any(!is.finite(B_k)) || any(!is.finite(C_k)) || any(C_k > 0) || any(C_k == 0 & B_k >= 0)) {
+      stop("Taylor q(a) is not normalizable at k=", k, ".");
+    }
+    
     # solve g(a_{a_{ik}}) = 0 via Newton's method
     mu0 <- (2 * alpha) / (-B_k + sqrt(B_k^2 - 4 * alpha * C_k * (1 + 1 / model$vparams$a$a[, k])));
     a_a_k <- alpha - C_k * mu0^2;
@@ -522,6 +525,12 @@ update_q_a <- function(model) {
       g_deriv <- -t + (alpha - a_a_k) * (2 * a_a_k * p1 + (a_a_k^2) * p2 - 1) + (C_k^2 * mu^3) / ((a_a_k^2) * S);
       
       step <- g / g_deriv;
+      if (any(!is.finite(step))) {
+        stop("Non-finite Newton step in q(a) update at k=", k, ".");
+      }
+      while (any(a_a_k - step <= 0)) {
+        step[a_a_k - step <= 0] <- 0.5 * step[a_a_k - step <= 0];
+      }
       a_a_k <- a_a_k - step;
       if (isTRUE(max(abs(step) / a_a_k) < 1e-10)) break;
     }
@@ -544,9 +553,8 @@ update_q_a <- function(model) {
     
     # update E[n] and Var(n)
     expect_n <- expect_n + outer(one_minus_u_k * (new_expect_a_k - old_expect_a_k), ed_beta_k, "*");
-    var_n <- var_n +
-      outer(one_minus_u_k_sq * (new_expect_a2_k - old_expect_a2_k), ed_beta2_k, "*") -
-      outer(one_minus_u_k_sq * (new_expect_a_k^2 - old_expect_a_k^2), ed_beta_k^2, "*");
+    var_n <- pmax(var_n + outer(one_minus_u_k_sq * (new_expect_a2_k - old_expect_a2_k), ed_beta2_k, "*") -
+                    outer(one_minus_u_k_sq * (new_expect_a_k^2 - old_expect_a_k^2), ed_beta_k^2, "*"), 0);
   }
   
   model$params$expect_log_m <- expect_n;
@@ -674,8 +682,8 @@ update_q_z_v <- function(model) {
   
   # Var(n)
   one_minus_u_sq <- (1 - u[, seq_len(K), drop = FALSE])^2;
-  var_n <- (one_minus_u_sq * model$params$expect_a2) %*% model$params$expect_delta_beta2 -
-    (one_minus_u_sq * (model$params$expect_a^2)) %*% (model$params$expect_delta_beta^2);
+  var_n <- pmax((one_minus_u_sq * model$params$expect_a2) %*% model$params$expect_delta_beta2 - 
+                  (one_minus_u_sq * (model$params$expect_a^2)) %*% (model$params$expect_delta_beta^2), 0);
   
   # a_{z_{ij}}, b_{z_{ij}}
   a_z <- x + gamma_expect_m * (1 + 0.5 * var_n);
@@ -769,7 +777,7 @@ elbo_components <- function(model) {
     f_second <- expect_v * gamma_exp_expect_n * (log(gamma) + expect_log_z_given_v_one - digamma(gamma_exp_expect_n) -
       gamma_exp_expect_n * trigamma(gamma_exp_expect_n));
     one_minus_u_sq <- (1 - u[, seq_len(K), drop=FALSE])^2;
-    var_n <- (one_minus_u_sq * expect_a2) %*% expect_delta_beta2 - (one_minus_u_sq * (expect_a^2)) %*% (expect_delta_beta^2);
+    var_n <- pmax((one_minus_u_sq * expect_a2) %*% expect_delta_beta2 - (one_minus_u_sq * (expect_a^2)) %*% (expect_delta_beta^2), 0);
     
     # E[log p(x|z)] + E[log p(z|m,v)] - E[log q(z|v)]
     observation_constant <- lgamma(x + rho) - lgamma(x + 1) - lgamma(rho) + rho * log(rho) + x_log_y(x, 1 - u);
@@ -882,7 +890,7 @@ final_elbo <- function(model) {
 }
 
 # sample a randomized ExprSim initialization
-sample_model <- function(data, hparams) {
+sample_model <- function(data, hparams, fixed=NULL) {
   if (!is(data, "exprsim_vi_data")) {
     data <- prepare_data(data)
   }
@@ -899,7 +907,7 @@ sample_model <- function(data, hparams) {
   sigma2_beta <- matrix(1 / hparams$tau, K, J)
   
   params0 <- list(expect_delta=expect_delta, mu_beta=mu_beta, sigma2_beta=sigma2_beta)
-  make_model(data, params0, hparams)
+  make_model(data, params0, hparams, fixed = fixed)
 }
 
 # search over multiple ExprSim initializations
@@ -939,7 +947,7 @@ exprsim_vi_search <- function(data, hparams, n_starts=10, fixed=NULL, tol=1e-2, 
   # remaining fits: prior based random initializations
   if (n_starts > 1) {
     for (s in 2:n_starts) {
-      initial_model <- sample_model(data, hparams);
+      initial_model <- sample_model(data, hparams, fixed = fixed);
 
       candidate_model <- exprsim_vi_local(
         model=initial_model,
@@ -1064,7 +1072,6 @@ make_hparams <- function(settings) {
 
 # hyperparameter selection
 hparams_select <- function(settings) {
-  set.seed(123)
 
   # regulator-specific u_k applied to first K columns
   u <- u_indicator
@@ -1151,16 +1158,16 @@ search_hparams_beta <- function(settings, name, mu_grid, lambda_grid, stage) {
 }
 
 # hyperparameter grids
-tau_grid <- c(700, 800, 900, 1000)
-gamma_grid <- c(0.5, 0.8, 1.0, 1.2)
-rho_grid <- c(15, 20, 25, 30)
+tau_grid <- c(600, 700, 800, 900)
+gamma_grid <- c(0.6, 0.7, 0.8)
+rho_grid <- c(45, 50, 55, 60)
 u_grid <- c(0.1, 0.3, 0.5, 0.7, 0.9)
 alpha_grid <- c(100, 120, 140, 160)
 mu_grid <- c(0.1, 0.3, 0.5, 0.7, 0.9)
 lambda_grid <- c(0.1, 1, 10, 100)
 
 # initial values
-settings <- list(tau=800, gamma=1, rho=20, u=rep(0.7, K), alpha=140,
+settings <- list(tau=700, gamma=0.7, rho=55, u=rep(0.7, K), alpha=120,
                  mu_psi=0.5, lambda_psi=0.1, 
                  mu_phi=0.9, lambda_phi=0.1, 
                  mu_eta=0.7, lambda_eta=1)
