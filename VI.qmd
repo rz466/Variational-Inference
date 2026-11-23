@@ -168,88 +168,336 @@ $$
 From the joint distribution,
 
 $$
-\begin{aligned}  \log p(X,h) ={}& \log p(X\mid z) +\log p(z\mid m,v) +\log p(v\mid\eta) +\log p(\eta) \\  &+ \log p(\beta) +\log p(\delta\mid\psi,\phi) +\log p(\psi) +\log p(\phi) +\log p(a).  \end{aligned}
+\begin{aligned}
+\log p(X,h) ={}& \log p(X\mid z) + \log p(z\mid m,v) + \log p(v\mid\eta) + \log p(\eta) \\
+&+ \log p(\beta) + \log p(\delta\mid\psi,\phi) + \log p(\psi) + \log p(\phi) + \log p(a).
+\end{aligned}
 $$
 
-Only $\log p(z\mid m,v)$ and $\log p(a)$ depend on $a_{ik}$. Therefore,
+Only $\sum_{j=1}^{J}\log p(z_{ij}\mid m_{ij},v_{ij})$ and $\log p(a_{ik})$ depend on $a_{ik}$. Therefore,
 
 $$
-\log q^*(a_{ik}) \propto E_{-a_{ik}} \left[ \sum_{j=1}^{J} \log p(z_{ij}\mid m_{ij},v_{ij}) + \log p(a_{ik}) \right].
+\log q^*(a_{ik}) \propto E_{-a_{ik}} \Big[\sum_{j=1}^{J} \log p(z_{ij}\mid m_{ij},v_{ij}) + \log p(a_{ik}) \Big].
 $$
 
 From our model,
 
 $$
-p(z_{ij}\mid m_{ij},v_{ij}) = \left[\delta_0(z_{ij})\right]^{1-v_{ij}} \left[ \operatorname{Gamma} (z_{ij}\mid m_{ij}\gamma,\gamma) \right]^{v_{ij}}.
+p(z_{ij}\mid m_{ij},v_{ij}) = \left[\delta_0(z_{ij})\right]^{1-v_{ij}} \left[\operatorname{Gamma}(z_{ij}\mid m_{ij}\gamma,\gamma)\right]^{v_{ij}}.
 $$
 
 Hence,
 
 $$
-\log p(z_{ij}\mid m_{ij},v_{ij}) = (1-v_{ij})\log \delta_0(z_{ij})+v_{ij} \log \operatorname{Gamma} (z_{ij}\mid m_{ij}\gamma,\gamma)
-$$
-
-$$
-= (1-v_{ij})\log \delta_0(z_{ij})+v_{ij} \log \Big[\frac{ \gamma^{m_{ij}\gamma} }{ \Gamma(m_{ij}\gamma) } z_{ij}^{m_{ij}\gamma-1} e^{-\gamma z_{ij}} \Big]
-$$
-
-$$
-= (1-v_{ij})\log \delta_0(z_{ij})+v_{ij} \Big[ -\log\Gamma(m_{ij}\gamma) + m_{ij}\gamma\log\gamma+ (m_{ij}\gamma-1)\log z_{ij} - \gamma z_{ij} \Big]. 
+\begin{aligned}
+\log p(z_{ij}\mid m_{ij},v_{ij}) &= (1-v_{ij})\log\delta_0(z_{ij}) + v_{ij}\log\operatorname{Gamma}(z_{ij}\mid m_{ij}\gamma,\gamma) \\
+&= (1-v_{ij})\log\delta_0(z_{ij}) + v_{ij}\log\left[\frac{\gamma^{m_{ij}\gamma}}{\Gamma(m_{ij}\gamma)} z_{ij}^{m_{ij}\gamma-1} e^{-\gamma z_{ij}}\right] \\
+&= (1-v_{ij})\log\delta_0(z_{ij}) + v_{ij}\left[ -\log\Gamma(m_{ij}\gamma) + m_{ij}\gamma\log\gamma + (m_{ij}\gamma-1)\log z_{ij} - \gamma z_{ij} \right].
+\end{aligned}
 $$
 
 Terms $(1-v_{ij})\log\delta_0(z_{ij})$, $-v_{ij}\log z_{ij}$, and $-\gamma v_{ij}z_{ij}$ do not depend on $a_{ik}$. Therefore,
 
 $$
-\log p(z_{ij}\mid m_{ij},v_{ij}) \overset{a_{ik}}{\propto} v_{ij} \left[ -\log\Gamma(m_{ij}\gamma) + m_{ij}\gamma\log\gamma + m_{ij}\gamma\log z_{ij} \right]
+\begin{aligned}
+\log p(z_{ij}\mid m_{ij},v_{ij}) &\overset{a_{ik}}{\propto} v_{ij}\left[ -\log\Gamma(m_{ij}\gamma) + m_{ij}\gamma\log\gamma + m_{ij}\gamma\log z_{ij} \right] \\
+&= v_{ij}\left[ -\log\Gamma(m_{ij}\gamma) + m_{ij}\gamma(\log\gamma + \log z_{ij}) \right].
+\end{aligned}
 $$
 
-$$
-=v_{ij} \left[ -\log\Gamma(m_{ij}\gamma) + m_{ij}\gamma \left( \log\gamma+\log z_{ij} \right) \right].
-$$
-
-Since
-
-$$
-a_{ik}\sim\operatorname{Gamma}(\alpha,\alpha),
-$$
-
-so
-
-$$
-\log p(a_{ik}) = \log  \operatorname{Gamma} (a_{ik} \mid \alpha, \alpha)
-$$
-
-$$
-= \log (\frac{\alpha^\alpha}{\Gamma(\alpha)} a_{ik}^{\alpha-1} e^{-\alpha a_{ik}})
-$$
-
-$$
-= -\log\Gamma(\alpha) + \alpha\log\alpha + (\alpha-1)\log a_{ik} - \alpha a_{ik}.
-$$
-
-The first two terms do not depend on $a_{ik}$, so
-
-$$
-\log p(a_{ik}) \overset{a_{ik}}{\propto} (\alpha-1)\log a_{ik} - \alpha a_{ik}.
-$$
-
-Combining the terms,
-
-$$
-\log q^*(a_{ik}) \propto{} E_{-a_{ik}} \Bigg[ \sum_{j=1}^{J} v_{ij} \left\{ -\log\Gamma(m_{ij}\gamma) + m_{ij}\gamma (\log\gamma+\log z_{ij}) \right\} + (\alpha-1)\log a_{ik} - \alpha a_{ik} \Bigg]
-$$
-
-$$
-= (\alpha-1)\log a_{ik} - \alpha a_{ik} + \sum_{j=1}^{J} E_{-a_{ik}} \left[ v_{ij} \left\{ -\log\Gamma(m_{ij}\gamma) + m_{ij}\gamma (\log\gamma+\log z_{ij}) \right\} \right]. 
-$$
-
-Since
+With
 
 $$
 m_{ij} = \exp\left( \sum_{k=1}^{K} \beta'_{kj}a'_{ik} \right) = \exp\left( \sum_{k=1}^{K} \delta_{kj}\beta_{kj}(1-u_{ik})a_{ik} \right),
 $$
 
-$a_{ik}$ enters nonlinearly through both $m_{ij}$ and $\log\Gamma(m_{ij}\gamma)$. Therefore, $q^*(a_{ik})$ does not reduce to a standard conjugate distribution.
+define
+
+$$
+n = \log m_{ij} = \sum_{k=1}^{K} \delta_{kj}\beta_{kj}(1-u_{ik})a_{ik},
+$$
+
+so that $m_{ij} = e^n$.
+
+Then,
+
+$$
+\log p(z_{ij}\mid m_{ij},v_{ij}) \overset{a_{ik}}{\propto} v_{ij}\left[ -\log\Gamma(\gamma e^n) + \gamma e^n(\log\gamma + \log z_{ij}) \right].
+$$
+
+Since $a_{ik} \sim \operatorname{Gamma}(\alpha, \alpha)$,
+
+$$
+\log p(a_{ik}) = -\log\Gamma(\alpha) + \alpha\log\alpha + (\alpha - 1)\log a_{ik} - \alpha a_{ik} \overset{a_{ik}}{\propto} (\alpha - 1)\log a_{ik} - \alpha a_{ik}.
+$$
+
+Combining both terms,
+
+$$
+\sum_{j=1}^{J}\log p(z_{ij}\mid m_{ij},v_{ij}) + \log p(a_{ik}) \overset{a_{ik}}{\propto} \sum_{j=1}^{J} v_{ij}\left[ -\log\Gamma(\gamma e^n) + \gamma e^n(\log\gamma + \log z_{ij}) \right] + (\alpha - 1)\log a_{ik} - \alpha a_{ik}.
+$$
+
+Now we take the expectation $E_{-a_{ik}}[\cdot]$,
+
+$$
+\log q^*(a_{ik}) \propto \sum_{j=1}^{J} E_{-a_{ik}}\Big[ v_{ij}\left\{ -\log\Gamma(\gamma e^n) + \gamma e^n(\log\gamma + \log z_{ij}) \right\} \Big] + (\alpha - 1)\log a_{ik} - \alpha a_{ik}.
+$$
+
+We first take the expectation over $(z_{ij}, v_{ij})$ and define
+
+$$
+\begin{aligned}
+f(n) &= E_{z_{ij},v_{ij}}\left[ v_{ij}\left\{ -\log\Gamma(\gamma e^n) + \gamma e^n(\log\gamma + \log z_{ij}) \right\} \right] \\
+&= E_{v_{ij}}[v_{ij}]\left[ -\log\Gamma(\gamma e^n) + \gamma e^n\left\{ \log\gamma + E_{z_{ij}\mid v_{ij}=1}[\log z_{ij}\mid v_{ij}=1] \right\} \right].
+\end{aligned}
+$$
+
+Then,
+
+$$
+\log q^*(a_{ik}) \propto \sum_{j=1}^{J} E_{-a_{ik}}[f(n)] + (\alpha - 1)\log a_{ik} - \alpha a_{ik}.
+$$
+
+Taking the first, second, and third derivatives of $f(n)$ with respect to $n$:
+
+$$
+f'(n) = \frac{\partial f(n)}{\partial n} = E_{v_{ij}}[v_{ij}]\gamma e^n \left[ \log\gamma + E_{z_{ij}\mid v_{ij}=1}[\log z_{ij}\mid v_{ij}=1] - \Psi(\gamma e^n) \right],
+$$
+
+$$
+f''(n) = \frac{\partial^2 f(n)}{\partial n^2} = f'(n) - E_{v_{ij}}[v_{ij}](\gamma e^n)^2\Psi_1(\gamma e^n),
+$$
+
+$$
+f'''(n) = \frac{\partial^3 f(n)}{\partial n^3} = f''(n) - E_{v_{ij}}[v_{ij}](\gamma e^n)^2\left[ 2\Psi_1(\gamma e^n) + \gamma e^n\Psi_2(\gamma e^n) \right].
+$$
+
+We then take the expectation over $(\beta, \delta, a)$,
+
+$$
+E_{\beta,\delta,a}[n] = \sum_{k=1}^{K} (1-u_{ik}) E_{a_{ik}}[a_{ik}] E_{\beta_{kj},\delta_{kj}}[\delta_{kj}\beta_{kj}],
+$$
+
+$$
+\operatorname{Var}_{\beta,\delta,a}(n) = E_{\beta,\delta,a} \Big[ \big(n - E_{\beta,\delta,a}[n]\big)^2 \Big]= \sum_{k=1}^{K} (1-u_{ik})^2 \left( E_{a_{ik}}[a_{ik}^2] E_{\beta_{kj},\delta_{kj}}[\delta_{kj}\beta_{kj}^2] - E_{a_{ik}}[a_{ik}]^2 E_{\beta_{kj},\delta_{kj}}[\delta_{kj}\beta_{kj}]^2 \right),
+$$
+
+we approximate $f(n)$ by a second-order Taylor expansion around $E_{\beta,\delta,a}[n]$:
+
+$$
+f(n) \approx f\big(E_{\beta,\delta,a}[n]\big) + f'\big(E_{\beta,\delta,a}[n]\big)\big(n - E_{\beta,\delta,a}[n]\big) + \frac{1}{2}f''\big(E_{\beta,\delta,a}[n]\big)\big(n - E_{\beta,\delta,a}[n]\big)^2.
+$$
+
+Since $E_{\beta,\delta,a}\big[n - E_{\beta,\delta,a}[n]\big] = 0$,
+
+$$
+E_{\beta,\delta,a}[f(n)] \approx f\big(E_{\beta,\delta,a}[n]\big) + \frac{1}{2}f''\big(E_{\beta,\delta,a}[n]\big)\operatorname{Var}_{\beta,\delta,a}(n),
+$$
+
+Differentiating respect to $E_{\beta,\delta,a}[n]$,
+
+$$
+\frac{\partial}{\partial E_{\beta,\delta,a}[n]}\left[ f(E_{\beta,\delta,a}[n]) + \frac{1}{2}f''(E_{\beta,\delta,a}[n])\operatorname{Var}_{\beta,\delta,a}(n) \right] = f'(E_{\beta,\delta,a}[n]) + \frac{1}{2}f'''(E_{\beta,\delta,a}[n])\operatorname{Var}_{\beta,\delta,a}(n).
+$$
+
+Taking the remaining expectation $E_{-a_{ik}}[\cdot]$ over $(\beta, \delta)$ and $a_{-(i,k)}$, and dropping $f\big(E_{\beta,\delta,a}[n]\big)$, which does not depend on $a_{ik}$,
+
+$$
+E_{-a_{ik}}[f(n)] \overset{a_{ik}}{\approx} \left[ f'\big(E_{\beta,\delta,a}[n]\big) + \frac{1}{2}f'''\big(E_{\beta,\delta,a}[n]\big)\operatorname{Var}_{\beta,\delta,a}(n) \right] E_{-a_{ik}}\big[n - E_{\beta,\delta,a}[n]\big] + \frac{1}{2}f''\big(E_{\beta,\delta,a}[n]\big) E_{-a_{ik}}\left[\big(n - E_{\beta,\delta,a}[n]\big)^2\right].
+$$
+
+For $k' = 1,...,K$,
+
+$$
+n - E_{\beta,\delta,a}[n] = \sum_{k'=1}^{K} (1-u_{ik'})\left[ a_{ik'}\delta_{k'j}\beta_{k'j} - E_{a_{ik'}}[a_{ik'}]E_{\beta_{k'j},\delta_{k'j}}[\delta_{k'j}\beta_{k'j}] \right],
+$$
+
+so for a particular $a_{ik}$,
+
+$$
+n - E_{\beta,\delta,a}[n] = (1-u_{ik})\left[ a_{ik}\delta_{kj}\beta_{kj} - E_{a_{ik}}[a_{ik}]E_{\beta_{kj},\delta_{kj}}[\delta_{kj}\beta_{kj}] \right] + \sum_{k'\neq k}(1-u_{ik'})\left[ a_{ik'}\delta_{k'j}\beta_{k'j} - E_{a_{ik'}}[a_{ik'}]E_{\beta_{k'j},\delta_{k'j}}[\delta_{k'j}\beta_{k'j}] \right].
+$$
+
+Taking expectation $E_{-a_{ik}}[\cdot]$ with fixed $E_{a_{ik}}[a_{ik}]$,
+
+$$
+\begin{aligned}
+E_{-a_{ik}}\big[n - E_{\beta,\delta,a}[n]\big] &= (1-u_{ik})\left( a_{ik}E_{\beta_{kj},\delta_{kj}}[\delta_{kj}\beta_{kj}] - E_{a_{ik}}[a_{ik}]E_{\beta_{kj},\delta_{kj}}[\delta_{kj}\beta_{kj}] \right) + \sum_{k'\neq k}(1-u_{ik'})\underbrace{\left( E_{a_{ik'}}[a_{ik'}]E_{\beta_{k'j},\delta_{k'j}}[\delta_{k'j}\beta_{k'j}] - E_{a_{ik'}}[a_{ik'}]E_{\beta_{k'j},\delta_{k'j}}[\delta_{k'j}\beta_{k'j}] \right)}_{=\,0} \\
+&= (1-u_{ik})E_{\beta_{kj},\delta_{kj}}[\delta_{kj}\beta_{kj}]\left( a_{ik} - E_{a_{ik}}[a_{ik}] \right) \\
+&\overset{a_{ik}}{\propto} (1-u_{ik})E_{\beta_{kj},\delta_{kj}}[\delta_{kj}\beta_{kj}]a_{ik}.
+\end{aligned}
+$$
+
+Since $\delta_{kj}^2 = \delta_{kj}$ for $\delta_{kj}\in\{0,1\}$,
+
+$$
+\begin{aligned}
+E_{-a_{ik}}\left[\big(n - E_{\beta,\delta,a}[n]\big)^2\right] &= E_{-a_{ik}}\left[ \left\{ (1-u_{ik})\left( a_{ik}\delta_{kj}\beta_{kj} - E_{a_{ik}}[a_{ik}]E_{\beta_{kj},\delta_{kj}}[\delta_{kj}\beta_{kj}] \right) + \sum_{k'\neq k}(1-u_{ik'})\left( a_{ik'}\delta_{k'j}\beta_{k'j} - E_{a_{ik'}}[a_{ik'}]E_{\beta_{k'j},\delta_{k'j}}[\delta_{k'j}\beta_{k'j}] \right) \right\}^2 \right] \\
+&= (1-u_{ik})^2 E_{-a_{ik}}\left[ \left( a_{ik}\delta_{kj}\beta_{kj} - E_{a_{ik}}[a_{ik}]E_{\beta_{kj},\delta_{kj}}[\delta_{kj}\beta_{kj}] \right)^2 \right] + C \\
+&= (1-u_{ik})^2 E_{-a_{ik}}\left[ a_{ik}^2\delta_{kj}^2\beta_{kj}^2 - 2a_{ik}\delta_{kj}\beta_{kj}E_{a_{ik}}[a_{ik}]E_{\beta_{kj},\delta_{kj}}[\delta_{kj}\beta_{kj}] + E_{a_{ik}}[a_{ik}]^2E_{\beta_{kj},\delta_{kj}}[\delta_{kj}\beta_{kj}]^2 \right] + C \\
+&= (1-u_{ik})^2\left[ E_{\beta_{kj},\delta_{kj}}[\delta_{kj}\beta_{kj}^2]a_{ik}^2 - 2E_{a_{ik}}[a_{ik}]E_{\beta_{kj},\delta_{kj}}[\delta_{kj}\beta_{kj}]^2 a_{ik} + E_{a_{ik}}[a_{ik}]^2E_{\beta_{kj},\delta_{kj}}[\delta_{kj}\beta_{kj}]^2 \right] + C \\
+&\overset{a_{ik}}{\propto} (1-u_{ik})^2 E_{\beta_{kj},\delta_{kj}}[\delta_{kj}\beta_{kj}^2]a_{ik}^2 - 2(1-u_{ik})^2 E_{a_{ik}}[a_{ik}]E_{\beta_{kj},\delta_{kj}}[\delta_{kj}\beta_{kj}]^2 a_{ik}.
+\end{aligned}
+$$
+
+Then,
+
+$$
+\begin{aligned} E_{-a_{ik}}[f(n)] \overset{a_{ik}}{\approx}{}& a_{ik}\left[ (1-u_{ik})E_{\beta_{kj},\delta_{kj}}[\delta_{kj}\beta_{kj}]\left\{ f'\big(E_{\beta,\delta,a}[n]\big) + \frac{1}{2}f'''\big(E_{\beta,\delta,a}[n]\big)\operatorname{Var}_{\beta,\delta,a}(n) \right\} - (1-u_{ik})^2 E_{a_{ik}}[a_{ik}]E_{\beta_{kj},\delta_{kj}}[\delta_{kj}\beta_{kj}]^2 f''\big(E_{\beta,\delta,a}[n]\big) \right] \\ &+ \frac{1}{2}a_{ik}^2 (1-u_{ik})^2 E_{\beta_{kj},\delta_{kj}}[\delta_{kj}\beta_{kj}^2] f''\big(E_{\beta,\delta,a}[n]\big) \end{aligned}
+$$
+
+Substituting back into $\log q^*(a_{ik})$,
+
+$$
+\begin{aligned}
+\log q^*(a_{ik}) \approx{}& (\alpha-1)\log a_{ik} - \alpha a_{ik} \\
+&+ a_{ik}\sum_{j=1}^{J}\left[ (1-u_{ik})E_{\beta_{kj},\delta_{kj}}[\delta_{kj}\beta_{kj}]\left\{ f'\big(E_{\beta,\delta,a}[n]\big) + \frac{1}{2}f'''\big(E_{\beta,\delta,a}[n]\big)\operatorname{Var}_{\beta,\delta,a}(n) \right\} - (1-u_{ik})^2 E_{a_{ik}}[a_{ik}]E_{\beta_{kj},\delta_{kj}}[\delta_{kj}\beta_{kj}]^2 f''\big(E_{\beta,\delta,a}[n]\big) \right] \\
+&+ \frac{1}{2}a_{ik}^2 \sum_{j=1}^{J} (1-u_{ik})^2 E_{\beta_{kj},\delta_{kj}}[\delta_{kj}\beta_{kj}^2] f''\big(E_{\beta,\delta,a}[n]\big).
+\end{aligned}
+$$
+
+Define
+
+$$
+B_{ik} = -\alpha + \sum_{j=1}^{J}\left[ (1-u_{ik})E_{\beta_{kj},\delta_{kj}}[\delta_{kj}\beta_{kj}]\left\{ f'\big(E_{\beta,\delta,a}[n]\big) + \frac{1}{2}f'''\big(E_{\beta,\delta,a}[n]\big)\operatorname{Var}_{\beta,\delta,a}(n) \right\} - (1-u_{ik})^2 E_{a_{ik}}[a_{ik}]E_{\beta_{kj},\delta_{kj}}[\delta_{kj}\beta_{kj}]^2 f''\big(E_{\beta,\delta,a}[n]\big) \right],
+$$
+
+$$
+C_{ik} = \sum_{j=1}^{J} (1-u_{ik})^2 E_{\beta_{kj},\delta_{kj}}[\delta_{kj}\beta_{kj}^2] f''\big(E_{\beta,\delta,a}[n]\big),
+$$
+
+so that
+
+$$
+\log q^*(a_{ik}) \approx (\alpha-1)\log a_{ik} + B_{ik}a_{ik} + \frac{1}{2}C_{ik}a_{ik}^2.
+$$
+
+Because of the quadratic term $\frac{1}{2}C_{ik}a_{ik}^2$, $q^*(a_{ik})$ does not take a conjugate Gamma form. Instead, we choose the Gamma shape and rate parameters $(a_{a_{ik}}, b_{a_{ik}})$ that make $q(a_{ik})$ as close as possible to $q^*(a_{ik})$ in reverse KL divergence, $\operatorname{KL}\big(q(a_{ik}) \parallel q^*(a_{ik})\big)$. By definition,
+
+$$
+\begin{aligned}
+\operatorname{KL}\big(q(a_{ik}) \parallel q^*(a_{ik})\big) &= E_{a_{ik}}\!\left[ \log \frac{q(a_{ik})}{q^*(a_{ik})} \right] \\
+&= E_{a_{ik}}\big[\log q(a_{ik})\big] - E_{a_{ik}}\big[\log q^*(a_{ik})\big],
+\end{aligned}
+$$
+
+where $E_{a_{ik}}[\cdot]$ is taken with respect to $q(a_{ik}) = \operatorname{Gamma}(a_{a_{ik}}, b_{a_{ik}})$. Substituting
+
+$$
+\log q^*(a_{ik}) = (\alpha-1)\log a_{ik} + B_{ik}a_{ik} + \frac{1}{2}C_{ik}a_{ik}^2 + \text{constant},
+$$
+
+$$
+\begin{aligned} \operatorname{KL}\big(q(a_{ik}) \parallel q^*(a_{ik})\big) &= E_{a_{ik}}\big[\log q(a_{ik})\big] - E_{a_{ik}}\!\left[ (\alpha-1)\log a_{ik} + B_{ik}a_{ik} + \frac{1}{2}C_{ik}a_{ik}^2 \right] +\text{constant} \\ &= - \ \ \underbrace{\left\{ E_{a_{ik}}\!\left[ (\alpha-1)\log a_{ik} + B_{ik}a_{ik} + \frac{1}{2}C_{ik}a_{ik}^2 \right] - E_{a_{ik}}\big[\log q(a_{ik})\big] \right\}}_{\mathcal{L}_{ik}(a_{a_{ik}},\, b_{a_{ik}})} +\text{constant}. \end{aligned}
+$$
+
+So,
+
+$$
+\operatorname{KL}\big(q(a_{ik}) \parallel q^*(a_{ik})\big) = -\mathcal{L}_{ik}(a_{a_{ik}}, b_{a_{ik}}) + \text{constant}.
+$$
+
+Thus, minimizing $\operatorname{KL}\big(q(a_{ik}) \parallel q^*(a_{ik})\big)$ is equivalent to maximizing
+
+$$
+\mathcal{L}_{ik}(a_{a_{ik}}, b_{a_{ik}}) = (\alpha - 1) E_{a_{ik}}[\log a_{ik}] + B_{ik} E_{a_{ik}}[a_{ik}] + \frac{1}{2} C_{ik} E_{a_{ik}}[a_{ik}^2] - E_{a_{ik}}[\log q(a_{ik})].
+$$
+
+Since $q(a_{ik}) = \operatorname{Gamma}(a_{a_{ik}}, b_{a_{ik}})$,
+
+$$
+E_{a_{ik}}[a_{ik}] = \frac{a_{a_{ik}}}{b_{a_{ik}}}, \qquad E_{a_{ik}}[a_{ik}^2] = \frac{a_{a_{ik}}(a_{a_{ik}}+1)}{b_{a_{ik}}^2}, \qquad E_{a_{ik}}[\log a_{ik}] = \Psi(a_{a_{ik}}) - \log b_{a_{ik}},
+$$
+
+and
+
+$$
+-E_{a_{ik}}\left[\log q(a_{ik})\right] = \log\Gamma(a_{a_{ik}}) - \log b_{a_{ik}} + (1 - a_{a_{ik}})\Psi(a_{a_{ik}}) + a_{a_{ik}},
+$$
+
+we get
+
+$$
+\mathcal{L}_{ik}(a_{a_{ik}}, b_{a_{ik}}) = \log\Gamma(a_{a_{ik}}) - \alpha\log b_{a_{ik}} + (\alpha - a_{a_{ik}})\Psi(a_{a_{ik}}) + a_{a_{ik}} + B_{ik}\frac{a_{a_{ik}}}{b_{a_{ik}}} + \frac{1}{2}C_{ik}\frac{a_{a_{ik}}(a_{a_{ik}}+1)}{b_{a_{ik}}^2}.
+$$
+
+Differentiating $\mathcal{L}_{ik}$ with respect to $b_{a_{ik}}$ and setting derivative to zero,
+
+$$
+\frac{\partial \mathcal{L}_{ik}}{\partial b_{a_{ik}}} = -\frac{\alpha}{b_{a_{ik}}} - B_{ik}\frac{a_{a_{ik}}}{b_{a_{ik}}^2} - C_{ik}\frac{a_{a_{ik}}(a_{a_{ik}}+1)}{b_{a_{ik}}^3} = 0,
+$$
+
+so
+
+$$
+\alpha b_{a_{ik}}^2 + B_{ik}a_{a_{ik}}b_{a_{ik}} + C_{ik}a_{a_{ik}}(a_{a_{ik}}+1) = 0
+$$
+
+$$
+\alpha + B_{ik}\frac{a_{a_{ik}}}{b_{a_{ik}}} + C_{ik}\frac{a_{a_{ik}}(a_{a_{ik}}+1)}{b_{a_{ik}}^2} = 0
+$$
+
+$$
+C_{ik}\left(1 + \frac{1}{a_{a_{ik}}}\right)\left(\frac{a_{a_{ik}}}{b_{a_{ik}}}\right)^2 + B_{ik}\left(\frac{a_{a_{ik}}}{b_{a_{ik}}}\right) + \alpha = 0
+$$
+
+Solving for $\frac{a_{a_{ik}}}{b_{a_{ik}}} > 0$, taking the positive root gives
+
+$$
+\frac{a_{a_{ik}}}{b_{a_{ik}}} = \frac{-B_{ik} - \sqrt{B_{ik}^2 - 4\alpha C_{ik}\left(1 + \dfrac{1}{a_{a_{ik}}}\right)}}{2 C_{ik}\left(1 + \dfrac{1}{a_{a_{ik}}}\right)}
+= \frac{2\alpha}{-B_{ik} + \sqrt{B_{ik}^2 - 4\alpha C_{ik}\left(1 + \dfrac{1}{a_{a_{ik}}}\right)}}.
+$$
+
+and therefore
+
+$$
+b_{a_{ik}} = \frac{a_{a_{ik}}}{\dfrac{2\alpha}{-B_{ik} + \sqrt{B_{ik}^2 - 4\alpha C_{ik}\left(1 + \dfrac{1}{a_{a_{ik}}}\right)}}} = \frac{a_{a_{ik}}\left(-B_{ik} + \sqrt{B_{ik}^2 - 4\alpha C_{ik}\left(1 + \dfrac{1}{a_{a_{ik}}}\right)}\right)}{2\alpha}.
+$$
+
+Next, differentiating $\mathcal{L}_{ik}$ with respect to $a_{a_{ik}}$ and setting derivative to zero,
+
+$$
+\frac{\partial \mathcal{L}_{ik}}{\partial a_{a_{ik}}} = (\alpha - a_{a_{ik}})\Psi_1(a_{a_{ik}}) + 1 + \frac{B_{ik}}{b_{a_{ik}}} + \frac{C_{ik}(2a_{a_{ik}}+1)}{2b_{a_{ik}}^2} = 0.
+$$
+
+Since $\alpha b_{a_{ik}}^2 + B_{ik}a_{a_{ik}}b_{a_{ik}} + C_{ik}a_{a_{ik}}(a_{a_{ik}}+1) = 0$,
+
+$$
+\dfrac{B_{ik}}{b_{a_{ik}}} = -\dfrac{\alpha}{a_{a_{ik}}} - \dfrac{C_{ik}(a_{a_{ik}}+1)}{b_{a_{ik}}^2}.
+$$
+
+Then,
+
+$$
+(\alpha - a_{a_{ik}})\Psi_1(a_{a_{ik}}) + 1 - \frac{\alpha}{a_{a_{ik}}} - \frac{C_{ik}}{2b_{a_{ik}}^2} = 0.
+$$
+
+Multiplying both sides by $a_{a_{ik}}^2$
+
+$$
+(\alpha - a_{a_{ik}})\left(a_{a_{ik}}^2\Psi_1(a_{a_{ik}}) - a_{a_{ik}}\right) - \frac{1}{2}C_{ik}\left(\frac{a_{a_{ik}}}{b_{a_{ik}}}\right)^2 = 0.
+$$
+
+Substituting $\dfrac{a_{a_{ik}}}{b_{a_{ik}}}$,
+
+$$
+g(a_{a_{ik}}) = (\alpha - a_{a_{ik}})\left( a_{a_{ik}}^2\Psi_1(a_{a_{ik}}) - a_{a_{ik}} \right) - \frac{1}{2}C_{ik}\left[\frac{2\alpha}{-B_{ik} + \sqrt{B_{ik}^2 - 4\alpha C_{ik}\left(1 + \dfrac{1}{a_{a_{ik}}}\right)}}\right]^2 = 0.
+$$
+
+Differentiating $g(a_{a_{ik}})$ with respect to $a_{a_{ik}}$ gives
+
+$$
+\begin{aligned}
+g'(a_{a_{ik}}) ={}& -\left( a_{a_{ik}}^2\Psi_1(a_{a_{ik}}) - a_{a_{ik}} \right) + (\alpha - a_{a_{ik}})\left( 2a_{a_{ik}}\Psi_1(a_{a_{ik}}) + a_{a_{ik}}^2\Psi_2(a_{a_{ik}}) - 1 \right) \\
+&+ \frac{C_{ik}^2 \left[\dfrac{2\alpha}{-B_{ik} + \sqrt{B_{ik}^2 - 4\alpha C_{ik}\left(1 + \dfrac{1}{a_{a_{ik}}}\right)}}\right]^3}{a_{a_{ik}}^2 \sqrt{B_{ik}^2 - 4\alpha C_{ik}\left(1 + \dfrac{1}{a_{a_{ik}}}\right)}}.
+\end{aligned}
+$$
+
+Solving $g(a_{a_{ik}}) = 0$ via Newton's method yields $a_{a_{ik}}$. Then, $b_{a_{ik}}$ is recovered from the closed-form formula after Newton's method yields $a_{a_{ik}}$. Therefore,
+
+$$
+q^*(a_{ik}) \approx \operatorname{Gamma}(a_{a_{ik}}, b_{a_{ik}}).
+$$
 
 ### **4.2** $\psi_{k}$
 
@@ -912,19 +1160,56 @@ $$
 For $v_{ij}=1$,
 
 $$
-\begin{aligned} \log q^*(z_{ij}\mid v_{ij}=1) \propto E_{-z_{ij}} \Big[ & x_{ij}\log z_{ij} -(\rho+x_{ij}) \log\{\rho+z_{ij}(1-u_{ij})\} \\ &+ \log\eta_j -\log\Gamma(m_{ij}\gamma) + m_{ij}\gamma\log\gamma +(m_{ij}\gamma-1)\log z_{ij} -\gamma z_{ij} \Big]\end{aligned}
+\begin{aligned} \log q^*(z_{ij}\mid v_{ij}=1) \propto E_{-z_{ij}} \Big[ & x_{ij}\log z_{ij} -(\rho+x_{ij}) \log\{\rho+z_{ij}(1-u_{ij})\} \\ &+ \log\eta_j -\log\Gamma(m_{ij}\gamma) + m_{ij}\gamma\log\gamma +(m_{ij}\gamma-1)\log z_{ij} -\gamma z_{ij} \Big].\end{aligned}
+$$
+
+Let $n_{ij} = \log m_{ij} = \sum_{k=1}^{K} \delta_{kj}\beta_{kj}(1-u_{ik})a_{ik}$, so that $m_{ij} = e^{n_{ij}}$. Define the $m_{ij}$-dependent part of $\log p(z_{ij}\mid m_{ij},v_{ij}=1)$ as
+
+$$
+\ell(n_{ij}, z_{ij}) = -\log\Gamma(\gamma e^{n_{ij}}) + \gamma e^{n_{ij}}(\log\gamma + \log z_{ij}).
+$$
+
+Differentiating with respect to $n_{ij}$ gives
+
+$$
+\frac{\partial}{\partial n_{ij}} \ell(n_{ij}, z_{ij}) = \gamma e^{n_{ij}} \left[ \log\gamma + \log z_{ij} - \Psi(\gamma e^{n_{ij}}) \right],
 $$
 
 $$
-= E_{-z_{ij}} \Big[  x_{ij}\log z_{ij} - (\rho+x_{ij}) \log\{\rho+z_{ij}(1-u_{ij})\} + (m_{ij}\gamma-1)\log z_{ij} - \gamma z_{ij} \Big]
+\frac{\partial^2}{\partial n_{ij}^2} \ell(n_{ij}, z_{ij}) = \gamma e^{n_{ij}} \left[ \log\gamma + \log z_{ij} - \Psi(\gamma e^{n_{ij}}) - \gamma e^{n_{ij}}\Psi_1(\gamma e^{n_{ij}}) \right].
+$$
+
+We approximate $\ell(n_{ij}, z_{ij})$ by a second-order Taylor expansion around $E[n_{ij}]$:
+
+$$
+\ell(n_{ij}, z_{ij}) \approx \ell(E[n_{ij}], z_{ij}) + \frac{\partial \ell}{\partial n_{ij}}(E[n_{ij}], z_{ij})(n_{ij} - E[n_{ij}]) + \frac{1}{2}\frac{\partial^2 \ell}{\partial n_{ij}^2}(E[n_{ij}], z_{ij})(n_{ij} - E[n_{ij}])^2,
+$$
+
+where
+
+$$
+E[n_{ij}] = \sum_{k=1}^{K} (1-u_{ik}) E[a_{ik}] E[\delta_{kj}\beta_{kj}],
 $$
 
 $$
-=E_{-z_{ij}} \Big[  (x_{ij}+m_{ij}\gamma-1)\log z_{ij} - (\rho+x_{ij}) \log\{\rho+z_{ij}(1-u_{ij})\} - \gamma z_{ij} \Big]
+\operatorname{Var}(n_{ij}) = \sum_{k=1}^{K} (1-u_{ik})^2 \left( E[a_{ik}^2] E[\delta_{kj}\beta_{kj}^2] - E[a_{ik}]^2 E[\delta_{kj}\beta_{kj}]^2 \right).
 $$
 
+Taking $E_{-z_{ij}}[\cdot]$ on both sides, the linear term vanishes since $E_{-z_{ij}}[n_{ij} - E[n_{ij}]] = 0$, giving
+
 $$
-=\left( x_{ij}+\gamma E[m_{ij}]-1 \right)\log z_{ij} - (\rho+x_{ij}) \log\{\rho+z_{ij}(1-u_{ij})\} - \gamma z_{ij}.
+\begin{aligned}
+E_{-z_{ij}}[\ell(n_{ij}, z_{ij})] \approx{}& -\log\Gamma(\gamma e^{E[n_{ij}]}) + \gamma e^{E[n_{ij}]}(\log\gamma + \log z_{ij}) \\
+&+ \frac{1}{2}\operatorname{Var}(n_{ij})\,\gamma e^{E[n_{ij}]}\left[ \log\gamma + \log z_{ij} - \Psi(\gamma e^{E[n_{ij}]}) - \gamma e^{E[n_{ij}]}\Psi_1(\gamma e^{E[n_{ij}]}) \right] \\
+={}& \gamma e^{E[n_{ij}]}\left(1 + \frac{1}{2}\operatorname{Var}(n_{ij})\right)\log z_{ij} - \log\Gamma(\gamma e^{E[n_{ij}]}) + \gamma e^{E[n_{ij}]}\log\gamma \\
+&+ \frac{1}{2}\operatorname{Var}(n_{ij})\,\gamma e^{E[n_{ij}]}\left[ \log\gamma - \Psi(\gamma e^{E[n_{ij}]}) - \gamma e^{E[n_{ij}]}\Psi_1(\gamma e^{E[n_{ij}]}) \right].
+\end{aligned}
+$$
+
+Substituting this into $\log q^*(z_{ij}\mid v_{ij}=1)$ and dropping terms that do not depend on $z_{ij}$,
+
+$$
+\log q^*(z_{ij}\mid v_{ij}=1) \approx \left[ x_{ij} + \gamma e^{E[n_{ij}]}\left(1 + \frac{1}{2}\operatorname{Var}(n_{ij})\right) - 1 \right]\log z_{ij} - (\rho+x_{ij}) \log\{\rho+z_{ij}(1-u_{ij})\} - \gamma z_{ij}.
 $$
 
 The term $-(\rho+x_{ij}) \log\{\rho+z_{ij}(1-u_{ij})\}$ prevents the kernel from having the Gamma form, so we introduce an auxiliary variational parameter $\xi_{ij}>0$ and define
@@ -970,11 +1255,11 @@ $$
 When deriving only $q^*(z_{ij}\mid v_{ij}=1)$, the first two terms do not depend on $z_{ij}$, so
 
 $$
-\log q^*(z_{ij}\mid v_{ij}=1) \gtrsim{} \left( x_{ij}+\gamma E[m_{ij}]-1 \right)\log z_{ij} - \frac{(\rho+x_{ij})(1-u_{ij})}{\xi_{ij}} z_{ij} -\gamma z_{ij}
+\log q^*(z_{ij}\mid v_{ij}=1) \gtrsim{} \left[ x_{ij}+\gamma e^{E[n_{ij}]}\left(1 + \frac{1}{2}\operatorname{Var}(n_{ij})\right)-1 \right]\log z_{ij} - \frac{(\rho+x_{ij})(1-u_{ij})}{\xi_{ij}} z_{ij} -\gamma z_{ij}
 $$
 
 $$
-=\left( x_{ij}+\gamma E[m_{ij}]-1 \right)\log z_{ij} - \left[ \gamma+ \frac{(\rho+x_{ij})(1-u_{ij})}{\xi_{ij}} \right] z_{ij}. 
+=\left[ x_{ij}+\gamma e^{E[n_{ij}]}\left(1 + \frac{1}{2}\operatorname{Var}(n_{ij})\right)-1 \right]\log z_{ij} - \left[ \gamma+ \frac{(\rho+x_{ij})(1-u_{ij})}{\xi_{ij}} \right] z_{ij}. 
 $$
 
 Hence,
@@ -986,7 +1271,7 @@ $$
 where
 
 $$
-a_{z_{ij}} = x_{ij}+\gamma E[m_{ij}], \quad b_{z_{ij}} = \gamma+ \frac{(\rho+x_{ij})(1-u_{ij})}{\xi_{ij}}. 
+a_{z_{ij}} = x_{ij}+\gamma e^{E[n_{ij}]}\left(1 + \frac{1}{2}\operatorname{Var}(n_{ij})\right), \quad b_{z_{ij}} = \gamma+ \frac{(\rho+x_{ij})(1-u_{ij})}{\xi_{ij}}. 
 $$
 
 Since this Gamma form arises only after introducing the Taylor lower bound, we want to choose $\xi_{ij}$ to make the Taylor bound as tight as possible.
@@ -1055,7 +1340,7 @@ $$
 \begin{aligned} \log q^*(z_{ij}, v_{ij}=1) \propto E_{-(z_{ij},v_{ij})} \Big[ & x_{ij}\log z_{ij} -(\rho+x_{ij}) \log\{\rho+z_{ij}(1-u_{ij})\} \\ &+ \log\eta_j -\log\Gamma(m_{ij}\gamma) + m_{ij}\gamma\log\gamma +(m_{ij}\gamma-1)\log z_{ij} -\gamma z_{ij} \Big]\end{aligned}
 $$
 
-$$\begin{aligned} =& \left( x_{ij}+\gamma E[m_{ij}]-1 \right)\log z_{ij} - (\rho+x_{ij}) \log\{\rho+z_{ij}(1-u_{ij})\} \\ &+ E[\log\eta_j]  - E[\log\Gamma(m_{ij}\gamma)] + \gamma E[m_{ij}]\log\gamma -\gamma z_{ij}. \end{aligned}$$
+$$\begin{aligned} \approx{}& \left[ x_{ij}+\gamma e^{E[n_{ij}]}\left(1 + \frac{1}{2}\operatorname{Var}(n_{ij})\right)-1 \right]\log z_{ij} - (\rho+x_{ij}) \log\{\rho+z_{ij}(1-u_{ij})\} \\ &+ E[\log\eta_j] - \log\Gamma(\gamma e^{E[n_{ij}]}) + \gamma e^{E[n_{ij}]}\log\gamma \\ &+ \frac{1}{2}\operatorname{Var}(n_{ij})\,\gamma e^{E[n_{ij}]}\left[ \log\gamma - \Psi(\gamma e^{E[n_{ij}]}) - \gamma e^{E[n_{ij}]}\Psi_1(\gamma e^{E[n_{ij}]}) \right] -\gamma z_{ij}. \end{aligned}$$
 
 Now use the Taylor bound,
 
@@ -1066,23 +1351,23 @@ $$
 then
 
 $$
-\begin{aligned} \log q^*(z_{ij},v_{ij}=1) \gtrsim{}& \left( x_{ij}+\gamma E[m_{ij}]-1 \right)\log z_{ij} \\ &+ E[\log\eta_j] - E[\log\Gamma(m_{ij}\gamma)] + \gamma E[m_{ij}]\log\gamma \\ &- (\rho+x_{ij})\log\xi_{ij} - \frac{(\rho+x_{ij})(\rho-\xi_{ij})}{\xi_{ij}} - \left[ \gamma+ \frac{(\rho+x_{ij})(1-u_{ij})}{\xi_{ij}} \right]z_{ij} . \end{aligned}
+\begin{aligned} \log q^*(z_{ij},v_{ij}=1) \gtrsim{}& \left[ x_{ij}+\gamma e^{E[n_{ij}]}\left(1 + \frac{1}{2}\operatorname{Var}(n_{ij})\right)-1 \right]\log z_{ij} \\ &+ E[\log\eta_j] - \log\Gamma(\gamma e^{E[n_{ij}]}) + \gamma e^{E[n_{ij}]}\log\gamma \\ &+ \frac{1}{2}\operatorname{Var}(n_{ij})\,\gamma e^{E[n_{ij}]}\left[ \log\gamma - \Psi(\gamma e^{E[n_{ij}]}) - \gamma e^{E[n_{ij}]}\Psi_1(\gamma e^{E[n_{ij}]}) \right] \\ &- (\rho+x_{ij})\log\xi_{ij} - \frac{(\rho+x_{ij})(\rho-\xi_{ij})}{\xi_{ij}} - \left[ \gamma+ \frac{(\rho+x_{ij})(1-u_{ij})}{\xi_{ij}} \right]z_{ij} . \end{aligned}
 $$
 
 Since
 
 $$
-a_{z_{ij}} = x_{ij}+\gamma E[m_{ij}], \quad b_{z_{ij}} = \gamma+ \frac{(\rho+x_{ij})(1-u_{ij})}{\xi_{ij}},
+a_{z_{ij}} = x_{ij}+\gamma e^{E[n_{ij}]}\left(1 + \frac{1}{2}\operatorname{Var}(n_{ij})\right), \quad b_{z_{ij}} = \gamma+ \frac{(\rho+x_{ij})(1-u_{ij})}{\xi_{ij}},
 $$
 
 $$
-\begin{aligned} \log q^*(z_{ij},v_{ij}=1) \gtrsim{}& (a_{z_{ij}}-1)\log z_{ij} \\ &+ E[\log\eta_j] - E[\log\Gamma(m_{ij}\gamma)] + \gamma E[m_{ij}]\log\gamma \\ &- (\rho+x_{ij})\log\xi_{ij} - \frac{(\rho+x_{ij})(\rho-\xi_{ij})}{\xi_{ij}}- b_{z_{ij}}z_{ij} . \end{aligned}
+\begin{aligned} \log q^*(z_{ij},v_{ij}=1) \gtrsim{}& (a_{z_{ij}}-1)\log z_{ij} \\ &+ E[\log\eta_j] - \log\Gamma(\gamma e^{E[n_{ij}]}) + \gamma e^{E[n_{ij}]}\log\gamma \\ &+ \frac{1}{2}\operatorname{Var}(n_{ij})\,\gamma e^{E[n_{ij}]}\left[ \log\gamma - \Psi(\gamma e^{E[n_{ij}]}) - \gamma e^{E[n_{ij}]}\Psi_1(\gamma e^{E[n_{ij}]}) \right] \\ &- (\rho+x_{ij})\log\xi_{ij} - \frac{(\rho+x_{ij})(\rho-\xi_{ij})}{\xi_{ij}}- b_{z_{ij}}z_{ij} . \end{aligned}
 $$
 
 Exponentiating both sides,
 
 $$
-\begin{aligned} q^*(z_{ij},v_{ij}=1) \propto{}& \exp\Bigg\{ E[\log\eta_j] - E[\log\Gamma(m_{ij}\gamma)] + \gamma E[m_{ij}]\log\gamma \\ &- (\rho+x_{ij})\log\xi_{ij} - \frac{(\rho+x_{ij})(\rho-\xi_{ij})}{\xi_{ij}} \Bigg\} \times z_{ij}^{a_{z_{ij}}-1} e^{-b_{z_{ij}}z_{ij}}. \end{aligned}
+\begin{aligned} q^*(z_{ij},v_{ij}=1) \propto{}& \exp\Bigg\{ E[\log\eta_j] - \log\Gamma(\gamma e^{E[n_{ij}]}) + \gamma e^{E[n_{ij}]}\log\gamma \\ &+ \frac{1}{2}\operatorname{Var}(n_{ij})\,\gamma e^{E[n_{ij}]}\left[ \log\gamma - \Psi(\gamma e^{E[n_{ij}]}) - \gamma e^{E[n_{ij}]}\Psi_1(\gamma e^{E[n_{ij}]}) \right] \\ &- (\rho+x_{ij})\log\xi_{ij} - \frac{(\rho+x_{ij})(\rho-\xi_{ij})}{\xi_{ij}} \Bigg\} \times z_{ij}^{a_{z_{ij}}-1} e^{-b_{z_{ij}}z_{ij}}. \end{aligned}
 $$
 
 Now integrate over $z_{ij}$:
@@ -1092,17 +1377,21 @@ q^*(v_{ij}=1) = \int_0^\infty q^*(z_{ij},v_{ij}=1)\,dz_{ij}
 $$
 
 $$
-\begin{aligned} q^*(v_{ij}=1) \propto{}& \exp\Bigg\{ E[\log\eta_j] - E[\log\Gamma(m_{ij}\gamma)] + \gamma E[m_{ij}]\log\gamma \\ &- (\rho+x_{ij})\log\xi_{ij} - \frac{(\rho+x_{ij})(\rho-\xi_{ij})}{\xi_{ij}} \Bigg\} \times \int_0^\infty z_{ij}^{a_{z_{ij}}-1} e^{-b_{z_{ij}}z_{ij}} \,dz_{ij} \end{aligned}
+\begin{aligned} q^*(v_{ij}=1) \propto{}& \exp\Bigg\{ E[\log\eta_j] - \log\Gamma(\gamma e^{E[n_{ij}]}) + \gamma e^{E[n_{ij}]}\log\gamma \\ &+ \frac{1}{2}\operatorname{Var}(n_{ij})\,\gamma e^{E[n_{ij}]}\left[ \log\gamma - \Psi(\gamma e^{E[n_{ij}]}) - \gamma e^{E[n_{ij}]}\Psi_1(\gamma e^{E[n_{ij}]}) \right] \\ &- (\rho+x_{ij})\log\xi_{ij} - \frac{(\rho+x_{ij})(\rho-\xi_{ij})}{\xi_{ij}} \Bigg\} \times \int_0^\infty z_{ij}^{a_{z_{ij}}-1} e^{-b_{z_{ij}}z_{ij}} \,dz_{ij} \end{aligned}
 $$
 
 $$
-\begin{aligned} =& \exp\Bigg\{ E[\log\eta_j] - E[\log\Gamma(m_{ij}\gamma)] + \gamma E[m_{ij}]\log\gamma \\ &- (\rho+x_{ij})\log\xi_{ij} - \frac{(\rho+x_{ij})(\rho-\xi_{ij})}{\xi_{ij}} \Bigg\} \times \Gamma(a_{z_{ij}}) b_{z_{ij}}^{-a_{z_{ij}}}. \end{aligned}
+\begin{aligned} =& \exp\Bigg\{ E[\log\eta_j] - \log\Gamma(\gamma e^{E[n_{ij}]}) + \gamma e^{E[n_{ij}]}\log\gamma \\ &+ \frac{1}{2}\operatorname{Var}(n_{ij})\,\gamma e^{E[n_{ij}]}\left[ \log\gamma - \Psi(\gamma e^{E[n_{ij}]}) - \gamma e^{E[n_{ij}]}\Psi_1(\gamma e^{E[n_{ij}]}) \right] \\ &- (\rho+x_{ij})\log\xi_{ij} - \frac{(\rho+x_{ij})(\rho-\xi_{ij})}{\xi_{ij}} \Bigg\} \times \Gamma(a_{z_{ij}}) b_{z_{ij}}^{-a_{z_{ij}}}. \end{aligned}
 $$
 
 Define
 
 $$
-c_1 =  \exp\Bigg\{ E[\log\eta_j] - E[\log\Gamma(m_{ij}\gamma)] + \gamma E[m_{ij}]\log\gamma - (\rho+x_{ij})\log\xi_{ij} - \frac{(\rho+x_{ij})(\rho-\xi_{ij})}{\xi_{ij}} \Bigg\} \times \Gamma(a_{z_{ij}}) b_{z_{ij}}^{-a_{z_{ij}}},
+\begin{aligned}
+c_1 ={}& \exp\Bigg\{ E[\log\eta_j] - \log\Gamma(\gamma e^{E[n_{ij}]}) + \gamma e^{E[n_{ij}]}\log\gamma \\
+&+ \frac{1}{2}\operatorname{Var}(n_{ij})\,\gamma e^{E[n_{ij}]}\left[ \log\gamma - \Psi(\gamma e^{E[n_{ij}]}) - \gamma e^{E[n_{ij}]}\Psi_1(\gamma e^{E[n_{ij}]}) \right] \\
+&- (\rho+x_{ij})\log\xi_{ij} - \frac{(\rho+x_{ij})(\rho-\xi_{ij})}{\xi_{ij}} \Bigg\} \times \Gamma(a_{z_{ij}}) b_{z_{ij}}^{-a_{z_{ij}}},
+\end{aligned}
 $$
 
 then
@@ -1523,7 +1812,7 @@ $$
 q^*(\beta_{kj},\delta_{kj}) \approx \begin{cases} \dfrac{c_0}{c_0+c_1} \mathcal N(\beta_{kj}\mid0,\tau^{-1}), & \delta_{kj}=0, \\ \dfrac{c_1}{c_0+c_1} \mathcal N \left( \beta_{kj}\mid \mu_{\beta_{kj}}, \sigma_{\beta_{kj}}^2 \right), & \delta_{kj}=1. \end{cases} 
 $$
 
-### 5. Variational evidence lower bound
+## 5. Variational evidence lower bound
 
 The objective in variational inference is to maximize the evidence lower bound. By Blei et al. (2017),
 
@@ -1559,7 +1848,7 @@ $$
 \begin{aligned} \text{ELBO}(q)  ={}& \sum_{i=1}^{N}\sum_{j=1}^{J} E[\log p(x_{ij}\mid z_{ij})] + \sum_{i=1}^{N}\sum_{j=1}^{J} E[\log p(z_{ij}\mid m_{ij},v_{ij})] + \sum_{i=1}^{N}\sum_{j=1}^{J} E[\log p(v_{ij}\mid\eta_j)] \\ &+ \sum_{k=1}^{K}\sum_{j=1}^{J} E[\log p(\beta_{kj})] + \sum_{k=1}^{K}\sum_{j=1}^{J} E[\log p(\delta_{kj}\mid\psi_k,\phi_j)] \\ &+ \sum_{i=1}^{N}\sum_{k=1}^{K} E[\log p(a_{ik})] \\ &+ \sum_{k=1}^{K} E[\log p(\psi_k)] + \sum_{j=1}^{J} E[\log p(\phi_j)] +\sum_{j=1}^{J} E[\log p(\eta_j)]  \\ &- \sum_{k=1}^{K}\sum_{j=1}^{J} E[\log q(\beta_{kj},\delta_{kj})] \\ &- \sum_{j=1}^{J} E[\log q(\eta_j)] - \sum_{k=1}^{K} E[\log q(\psi_k)] - \sum_{j=1}^{J} E[\log q(\phi_j)] \\ &- \sum_{i=1}^{N}\sum_{j=1}^{J} E[\log q(z_{ij},v_{ij})] \\ &- \sum_{i=1}^{N}\sum_{k=1}^{K} E[\log q(a_{ik})]. \end{aligned}
 $$
 
-#### **5.1** $E[\log p(x_{ij}\mid z_{ij})]$
+### **5.1** $E[\log p(x_{ij}\mid z_{ij})]$
 
 From 4.5, we derived
 
@@ -1621,199 +1910,103 @@ $$
 E[v_{ij}] = q(v_{ij}=1) = \frac{c_1}{c_0 + c_1}.
 $$
 
-#### **5.2** $E[\log p(z_{ij}\mid m_{ij},v_{ij})]$
+### **5.2** $E[\log p(z_{ij}\mid m_{ij},v_{ij})]$
 
-From 4.1, we derived
+From 4.1, we derived $$
+\log p(z_{ij}\mid m_{ij},v_{ij}) = (1-v_{ij})\log \delta_0(z_{ij})+v_{ij} \Big[ -\log\Gamma(m_{ij}\gamma) + m_{ij}\gamma\log\gamma+ (m_{ij}\gamma-1)\log z_{ij} - \gamma z_{ij} \Big]. 
+$$ For $v_{ij} = 0$, $z_{ij} = 0$, so the $v_{ij} = 0$ contribution cancels with the corresponding term in $q(z_{ij}\mid v_{ij}=0)$: $$
+p(z_{ij}\mid m_{ij},v_{ij}=0) = q(z_{ij}\mid v_{ij}=0) = \delta_0(z_{ij}),
+$$ $$
+E[\log p(z_{ij}\mid m_{ij}, v_{ij}=0) - \log q(z_{ij}\mid v_{ij}=0)]= E[\log\delta_0(z_{ij}) - \log\delta_0(z_{ij})] = 0. 
+$$
+
+Define
+
+$$
+n = \log m_{ij} = \sum_{k=1}^K \delta_{kj}\beta_{kj}(1-u_{ik})a_{ik},
+$$so that $m_{ij} = e^n$. From Section 4.1,
+
+Hence,
 
 $$
 \log p(z_{ij}\mid m_{ij},v_{ij}) = (1-v_{ij})\log \delta_0(z_{ij})+v_{ij} \Big[ -\log\Gamma(m_{ij}\gamma) + m_{ij}\gamma\log\gamma+ (m_{ij}\gamma-1)\log z_{ij} - \gamma z_{ij} \Big]. 
 $$
 
-For $v_{ij} = 0$, $z_{ij} = 0$, so the $v_{ij} = 0$ contribution cancels with the corresponding term in $q(z_{ij}\mid v_{ij}=0)$:
+Taking the expectation with the $v_{ij}=0$ term drops out,
 
 $$
-p(z_{ij}\mid m_{ij},v_{ij}=0) = q(z_{ij}\mid v_{ij}=0) = \delta_0(z_{ij}),
+E_{z_{ij},v_{ij}}[\log p(z_{ij}\mid m_{ij},v_{ij})] = E_{z_{ij},v_{ij}} \Big[ v_{ij} \big( -\log\Gamma(m_{ij}\gamma) + m_{ij}\gamma\log\gamma + m_{ij}\gamma\log z_{ij} - \log z_{ij} - \gamma z_{ij} \big) \Big]
 $$
 
-$$
-E[\log p(z_{ij}\mid m_{ij}, v_{ij}=0) - \log q(z_{ij}\mid v_{ij}=0)]= E[\log\delta_0(z_{ij}) - \log\delta_0(z_{ij})] = 0. 
-$$
-
-For $v_{ij}=1$,
+Here,
 
 $$
-\begin{aligned}  E[\log p(z_{ij}\mid m_{ij},v_{ij}=1)] &= -E[\log\Gamma(\gamma m_{ij})] + \gamma E[m_{ij}]\log\gamma + \left\{ \gamma E[m_{ij}]-1 \right\} E[\log z_{ij}\mid v_{ij}=1] - \gamma E[z_{ij}\mid v_{ij}=1] \\  &=  -E[\log\Gamma(\gamma m_{ij})] + \gamma E[m_{ij}]\log\gamma + \left\{ \gamma E[m_{ij}]-1 \right\} \left[ \Psi(a_{z_{ij}}) -\log b_{z_{ij}} \right] - \gamma \frac{a_{z_{ij}}}{b_{z_{ij}}}.  \end{aligned}
+E_{z_{ij},v_{ij}} \Big[ v_{ij} \big( -\log\Gamma(m_{ij}\gamma) + m_{ij}\gamma\log\gamma + m_{ij}\gamma\log z_{ij} \big) \Big]
+= E[v_{ij}] \Big[ -\log\Gamma(\gamma e^n) + \gamma e^n\log\gamma + \gamma e^n E[\log z_{ij}\mid v_{ij}=1] \Big] = f(n)
+$$
+
+as defined in Section 4.1.
+
+Then,
+
+$$
+E_{z_{ij},v_{ij}} \Big[ v_{ij} ( -\log z_{ij} - \gamma z_{ij} ) \Big] = E[v_{ij}] \Big( -E[\log z_{ij}\mid v_{ij}=1] - \gamma E[z_{ij}\mid v_{ij}=1] \Big).
+$$
+
+From Section 4.5, $q^*(z_{ij}\mid v_{ij}=1) = \operatorname{Gamma}(a_{z_{ij}}, b_{z_{ij}})$, so
+
+$$
+E[\log z_{ij}\mid v_{ij}=1] = \Psi(a_{z_{ij}}) - \log b_{z_{ij}}, \quad E[z_{ij}\mid v_{ij}=1] = \frac{a_{z_{ij}}}{b_{z_{ij}}}.
 $$
 
 Therefore,
 
 $$
-E[\log p(z_{ij}\mid m_{ij},v_{ij})] = E[v_{ij}] \Bigg[ -E[\log\Gamma(\gamma m_{ij})] +\gamma E[m_{ij}]\log\gamma + \left\{ \gamma E[m_{ij}]-1 \right\} \left[ \Psi(a_{z_{ij}}) -\log b_{z_{ij}} \right] - \gamma \frac{a_{z_{ij}}}{b_{z_{ij}}} \Bigg]. 
+E_{z_{ij},v_{ij}} \Big[ v_{ij} ( -\log z_{ij} - \gamma z_{ij} ) \Big] = E[v_{ij}] \Bigg( -\Big[ \Psi(a_{z_{ij}}) - \log b_{z_{ij}} \Big] - \gamma \frac{a_{z_{ij}}}{b_{z_{ij}}} \Bigg) = - E[v_{ij}] \left[ \Psi(a_{z_{ij}}) - \log b_{z_{ij}} + \gamma \frac{a_{z_{ij}}}{b_{z_{ij}}} \right]
 $$
 
-For the first implementation, $a_{ik}$ is fixed. Then
+Adding above two parts together,
 
 $$
-E[m_{ij}] = \prod_{k=1}^{K} E\left[ \exp \left\{ \delta_{kj}\beta_{kj} (1-u_{ik})a_{ik} \right\} \right].
+E_{z_{ij},v_{ij}}[\log p(z_{ij}\mid m_{ij},v_{ij})] = f(n) - E[v_{ij}]\left[ \Psi(a_{z_{ij}}) - \log b_{z_{ij}} + \gamma\frac{a_{z_{ij}}}{b_{z_{ij}}} \right],
+$$ where, as defined in Section 4.6, $$
+f(n) = E[v_{ij}] \left[ -\log\Gamma(\gamma e^{n}) + \gamma e^{n} \left\{ \log\gamma + \Psi(a_{z_{ij}}) - \log b_{z_{ij}} \right\} \right],
+$$ $$
+f''(n) = E[v_{ij}] \gamma e^{n} \left[ \log\gamma + \Psi(a_{z_{ij}}) - \log b_{z_{ij}} - \Psi(\gamma e^{n}) - \gamma e^{n}\Psi_1(\gamma e^{n}) \right].
 $$
 
-Since $\delta_{kj} \in \{0,1\}$,
-
-$$
-\begin{aligned} E\left[ \exp\left\{ \delta_{kj}\beta_{kj}(1-u_{ik})a_{ik} \right\} \right] ={}& q(\delta_{kj}=0) E\left[ \exp\left\{ \delta_{kj}\beta_{kj}(1-u_{ik})a_{ik} \right\} \mid \delta_{kj}=0 \right] \\ & + q(\delta_{kj}=1) E\left[ \exp\left\{ \delta_{kj}\beta_{kj}(1-u_{ik})a_{ik} \right\} \mid \delta_{kj}=1 \right] \\ ={}& q(\delta_{kj}=0) + q(\delta_{kj}=1) E\left[ \exp\left\{ \beta_{kj}(1-u_{ik})a_{ik} \right\} \mid \delta_{kj}=1 \right] \\ ={}& 1-E[\delta_{kj}] + E[\delta_{kj}] E\left[ \exp\left\{ \beta_{kj}(1-u_{ik})a_{ik} \right\} \mid\delta_{kj}=1 \right].  \end{aligned}
+Approximating $f(n)$ by the second-order Taylor expansion, $$
+f(n) \approx f(E[n]) + f'(E[n])(n - E[n]) + \frac{1}{2}f''(E[n])(n - E[n])^2.
 $$
 
-Now, when $\delta_{kj}=1$,
+Taking the expectation over $q(\beta,\delta)q(a)$, $E[n - E[n]] = 0$, and by definition,
 
 $$
-\beta_{kj}\mid\delta_{kj}=1 \sim N(\mu_{\beta_{kj}},\sigma_{\beta_{kj}}^2).
+\begin{aligned}
+\operatorname{Var}(n) = E\left[(n - E[n])^2\right] &= \operatorname{Var}\left( \sum_{k=1}^{K} (1-u_{ik}) a_{ik} \delta_{kj} \beta_{kj} \right) \\ &=\sum_{k=1}^{K} (1-u_{ik})^2 \operatorname{Var}(a_{ik}\delta_{kj}\beta_{kj}) \\
+&= \sum_{k=1}^{K} (1-u_{ik})^2 \Big( E[a_{ik}^2]E[\delta_{kj}\beta_{kj}^2] - E[a_{ik}]^2 E[\delta_{kj}\beta_{kj}]^2 \Big).
+\end{aligned}
 $$
 
-Using $E[\exp\left(t \beta\right)] = \exp\left(t\mu+\frac12t^2\sigma^2\right)$, with $t=(1-u_{ik})a_{ik}$,
-
-$$
-E\left[ \exp\left\{ \beta_{kj}(1-u_{ik})a_{ik} \right\} \mid\delta_{kj}=1 \right]= \exp\left[ (1-u_{ik})a_{ik}\mu_{\beta_{kj}} + \frac12(1-u_{ik})^2a_{ik}^2 \sigma_{\beta_{kj}}^2 \right],
+Therefore, $$
+E[\log p(z_{ij}\mid m_{ij},v_{ij})] \approx f(E[n]) + \frac{1}{2}f''(E[n])\operatorname{Var}(n) - E[v_{ij}]\left[ \Psi(a_{z_{ij}}) - \log b_{z_{ij}} + \gamma\frac{a_{z_{ij}}}{b_{z_{ij}}} \right],
 $$
 
 where
 
 $$
-\mu_{\beta_{kj}} = E[\beta_{kj} \mid \delta_{kj} = 1].
-$$
-
-Therefore,
-
-$$
-E[m_{ij}] = \prod_{k=1}^{K} \Bigg[ 1-E[\delta_{kj}] + E[\delta_{kj}] \exp \Bigg\{ (1-u_{ik})a_{ik}\mu_{\beta_{kj}} +\frac12 (1-u_{ik})^2a_{ik}^2 \sigma_{\beta_{kj}}^2 \Bigg\} \Bigg]. 
-$$
-
-From 4.6,
-
-$$
-E[\delta_{kj}] = \frac{c_1}{c_0+c_1} .
-$$
-
-Since $E[\log\Gamma(\gamma m_{ij})]$ does not have an obvious closed form and does not cancel here, we introduce the Stirling remainder bound, for every $x > 0$,
-
-$$
-\log\Gamma(x) \le \left(x - \frac{1}{2}\right)\log x - x + \frac{1}{2}\log(2\pi) + \frac{1}{12x}.
-$$
-
-For positive real arguments, the remainder in the Stirling expansion has the sign of the first omitted term and is bounded by it, which gives this upper bound.
-
-Since $\gamma m_{ij} > 0$, take $x = \gamma m_{ij}$. Then
-
-$$
-\log\Gamma(\gamma m_{ij})
-\le{}
-\left(\gamma m_{ij}-\frac12\right)
-\log(\gamma m_{ij})
--\gamma m_{ij}
-+
-\frac12\log(2\pi)
-+\frac{1}{12\gamma m_{ij}},
+E[n] = \sum_{k=1}^{K} (1-u_{ik}) E[a_{ik}] E[\delta_{kj}\beta_{kj}],
 $$
 
 $$
--\log\Gamma(\gamma m_{ij})
-\ge{}
--\left(\gamma m_{ij}-\frac12\right)
-\log(\gamma m_{ij})
-+\gamma m_{ij}
--
-\frac12\log(2\pi)
--\frac{1}{12\gamma m_{ij}}.
-$$
-
-Therefore,
-
-$$
-\begin{aligned}
--E[\log\Gamma(\gamma m_{ij})] 
-&\ge -E\left[\left(\gamma m_{ij}-\frac12\right)\log(\gamma m_{ij})\right] + \gamma E[m_{ij}] - \frac12\log(2\pi) - \frac{1}{12\gamma}E[m_{ij}^{-1}] \\
-&= -\left( \gamma\log\gamma\,E[m_{ij}] + \gamma E[m_{ij}\log m_{ij}] - \frac12\log\gamma - \frac12E[\log m_{ij}] \right) \\
-&\quad + \gamma E[m_{ij}] - \frac12\log(2\pi) - \frac{1}{12\gamma}E[m_{ij}^{-1}] \\
-&= -\gamma\log\gamma\,E[m_{ij}]
--\gamma E[m_{ij}\log m_{ij}]
-+
-\frac12\log\gamma
-+\frac12E[\log m_{ij}]
-+\gamma E[m_{ij}]
--
-\frac12\log(2\pi)
--\frac{1}{12\gamma}E[m_{ij}^{-1}].
-\end{aligned}
-$$
-
-For fixed $a_{ik}$,
-
-$$
-E[\log m_{ij}] = \sum_{k=1}^{K} (1-u_{ik})a_{ik} E[\delta_{kj}] \mu_{\beta_{kj}}. 
-$$
-
-Next,
-
-$$
-E[m_{ij}^{-1}] = \prod_{k=1}^{K} \Bigg[ 1-E[\delta_{kj}] + E[\delta_{kj}] \exp\left\{ -(1-u_{ik})a_{ik}\mu_{\beta_{kj}} + \frac12(1-u_{ik})^2a_{ik}^2 \sigma_{\beta_{kj}}^2 \right\} \Bigg].
-$$
-
-Since
-
-$$
-\begin{aligned} m_{ij}\log m_{ij}  ={}& \exp\left\{ \sum_{k=1}^{K} \delta_{kj}\beta_{kj}(1-u_{ik})a_{ik} \right\} \sum_{k=1}^{K} \delta_{kj}\beta_{kj}(1-u_{ik})a_{ik} \\ ={}& \sum_{k=1}^{K} \delta_{kj}\beta_{kj}(1-u_{ik})a_{ik}  \times \exp\left\{ \sum_{k'=1}^{K} \delta_{k'j}\beta_{k'j}(1-u_{ik'})a_{ik'} \right\} \\ ={}& \sum_{k=1}^{K} \delta_{kj}\beta_{kj}(1-u_{ik})a_{ik} \times \exp\left\{ \delta_{kj}\beta_{kj}(1-u_{ik})a_{ik} \right\}  \times \prod_{\substack{k'=1\\k'\neq k}}^{K} \exp\left\{ \delta_{k'j}\beta_{k'j}(1-u_{ik'})a_{ik'} \right\}, \end{aligned}
+f(E[n]) = E[v_{ij}] \left[ -\log\Gamma(\gamma e^{E[n]}) + \gamma e^{E[n]} \big( \log\gamma + \Psi(a_{z_{ij}}) - \log b_{z_{ij}} \big) \right],
 $$
 
 $$
-E[m_{ij}\log m_{ij}] = \sum_{k=1}^{K} (1-u_{ik})a_{ik} \times E\left[ \delta_{kj}\beta_{kj} \exp\left\{ \delta_{kj}\beta_{kj}(1-u_{ik})a_{ik} \right\} \right]\times \prod_{\substack{k'=1\\k'\neq k}}^{K} E\left[ \exp\left\{ \delta_{k'j}\beta_{k'j}(1-u_{ik'})a_{ik'} \right\} \right].  
+f''(E[n]) = E[v_{ij}] \gamma e^{E[n]} \left[ \log\gamma + \Psi(a_{z_{ij}}) - \log b_{z_{ij}} - \Psi(\gamma e^{E[n]}) - \gamma e^{E[n]}\Psi_1(\gamma e^{E[n]}) \right].
 $$
 
-We have
-
-$$
-E\left[ \exp\left\{ \delta_{k'j}\beta_{k'j}(1-u_{ik'})a_{ik'} \right\} \right] = 1-E[\delta_{k'j}] + E[\delta_{k'j}] \exp\Bigg\{ (1-u_{ik'})a_{ik'}\mu_{\beta_{k'j}}  +\frac12(1-u_{ik'})^2a_{ik'}^2 \sigma_{\beta_{k'j}}^2 \Bigg\}.  
-$$
-
-For $E\left[ \delta_{kj}\beta_{kj} \exp\left\{ \delta_{kj}\beta_{kj}(1-u_{ik})a_{ik} \right\} \right],$
-
-$$
-\begin{aligned} E\left[ \delta_{kj}\beta_{kj} \exp\left\{ \delta_{kj}\beta_{kj}(1-u_{ik})a_{ik} \right\} \right] &= q(\delta_{kj}=0) E\left[ \delta_{kj}\beta_{kj} \exp\left\{\delta_{kj}\beta_{kj}(1-u_{ik})a_{ik}\right\} \mid\delta_{kj}=0 \right] \\ &\quad + q(\delta_{kj}=1) E\left[ \delta_{kj}\beta_{kj} \exp\left\{\delta_{kj}\beta_{kj}(1-u_{ik})a_{ik}\right\} \mid\delta_{kj}=1 \right] \\ &= E[\delta_{kj}] E\left[ \beta_{kj} \exp\left\{ \beta_{kj}(1-u_{ik})a_{ik} \right\} \mid\delta_{kj}=1 \right]. \end{aligned}
-$$
-
-Since
-
-$$
-E\left[ \beta_{kj} \exp\left\{ \beta_{kj}(1-u_{ik})a_{ik} \right\} \mid\delta_{kj}=1 \right] = \left[ \mu_{\beta_{kj}} + (1-u_{ik})a_{ik}\sigma_{\beta_{kj}}^2 \right]\times \exp\Bigg\{ (1-u_{ik})a_{ik}\mu_{\beta_{kj}} + \frac12(1-u_{ik})^2a_{ik}^2 \sigma_{\beta_{kj}}^2 \Bigg\},
-$$
-
-$$
-E\left[ \delta_{kj}\beta_{kj} \exp\left\{ \delta_{kj}\beta_{kj}(1-u_{ik})a_{ik} \right\} \right] = E[\delta_{kj}] \left[ \mu_{\beta_{kj}} + (1-u_{ik})a_{ik}\sigma_{\beta_{kj}}^2 \right] \times \exp\Bigg\{ (1-u_{ik})a_{ik}\mu_{\beta_{kj}} + \frac12(1-u_{ik})^2a_{ik}^2 \sigma_{\beta_{kj}}^2 \Bigg\}.
-$$
-
-Finally,
-
-$$
-\begin{aligned}  E[m_{ij}\log m_{ij}] ={}& \sum_{k=1}^{K} E[\delta_{kj}] (1-u_{ik})a_{ik} \times \left[ \mu_{\beta_{kj}} + (1-u_{ik})a_{ik}\sigma_{\beta_{kj}}^2 \right] \times \exp\Bigg\{ (1-u_{ik})a_{ik}\mu_{\beta_{kj}} + \frac12(1-u_{ik})^2a_{ik}^2 \sigma_{\beta_{kj}}^2 \Bigg\} \\  &\times \prod_{\substack{k'=1\\k'\neq k}}^{K} \Bigg[ 1-E[\delta_{k'j}] + E[\delta_{k'j}] \exp\Bigg\{ (1-u_{ik'})a_{ik'} \mu_{\beta_{k'j}} + \frac12(1-u_{ik'})^2a_{ik'}^2 \sigma_{\beta_{k'j}}^2 \Bigg\} \Bigg].  \end{aligned}
-$$
-
-Previously, we have
-
-$$
-E[\log p(z_{ij}\mid m_{ij},v_{ij}=1)] = -E[\log\Gamma(\gamma m_{ij})] +\gamma E[m_{ij}]\log\gamma + (\gamma E[m_{ij}]-1) E[\log z_{ij}\mid v_{ij}=1] -\gamma E[z_{ij}\mid v_{ij}=1]. 
-$$
-
-After inserting the Stirling bound,
-
-$$
- -\gamma\log\gamma E[m_{ij}] + \gamma E[m_{ij}]\log\gamma =0
-$$
-
-cancels exactly. Therefore,
-
-$$
-\begin{aligned} E[\log p(z_{ij}\mid m_{ij},v_{ij})] &\ge E[v_{ij}] \Big[ -\gamma E[m_{ij}\log m_{ij}] + \frac12 E[\log m_{ij}] + \gamma E[m_{ij}] \\ &\quad\quad + \frac12 \log\gamma - \frac12 \log(2\pi) - \frac{1}{12\gamma} E[m_{ij}^{-1}] + \{\gamma E[m_{ij}]-1\}\{\Psi(a_{z_{ij}})-\log b_{z_{ij}}\} - \gamma\frac{a_{z_{ij}}}{b_{z_{ij}}} \Big] \\ &= E[v_{ij}] \Big[ -\gamma E[m_{ij}\log m_{ij}] + \frac12 E[\log m_{ij}] + \gamma E[m_{ij}] \\ &\quad\quad + \frac12 \log\left(\frac{\gamma}{2\pi}\right) - \frac{1}{12\gamma} E[m_{ij}^{-1}]  + \{\gamma E[m_{ij}]-1\}\{\Psi(a_{z_{ij}})-\log b_{z_{ij}}\} - \gamma\frac{a_{z_{ij}}}{b_{z_{ij}}} \Big]. \end{aligned}
-$$
-
-#### **5.3** $E[\log p(v_{ij}\mid\eta_j)]$
+### **5.3** $E[\log p(v_{ij}\mid\eta_j)]$
 
 From $v_{ij}\mid\eta_j \sim \operatorname{Bernoulli}(\eta_j)$,
 
@@ -1837,7 +2030,7 @@ $$
 E[\log p(v_{ij}\mid\eta_j)] = E[v_{ij}] \left[ \Psi(a_{\eta_j}) - \Psi(a_{\eta_j}+b_{\eta_j}) \right] + \left(1-E[v_{ij}]\right) \left[ \Psi(b_{\eta_j}) - \Psi(a_{\eta_j}+b_{\eta_j}) \right]. 
 $$
 
-#### **5.4** $E[\log p(\beta_{kj})]$
+### **5.4** $E[\log p(\beta_{kj})]$
 
 From $\beta_{kj} \sim N(0,\tau^{-1})$,
 
@@ -1890,7 +2083,7 @@ $$
 E[\log p(\beta_{kj})] = \frac12\log\tau -\frac12\log(2\pi) - \frac{\tau}{2} \left[ \left(1-E[\delta_{kj}]\right) {\tau}^{-1} + E[\delta_{kj}] \left( \mu_{\beta_{kj}}^2 + \sigma_{\beta_{kj}}^2 \right) \right]. 
 $$
 
-#### **5.5** $E[\log p(\delta_{kj}\mid\psi_k,\phi_j)]$
+### **5.5** $E[\log p(\delta_{kj}\mid\psi_k,\phi_j)]$
 
 From $\delta_{kj}\mid\psi_k,\phi_j \sim \operatorname{Bernoulli}(\psi_k\phi_j)$,
 
@@ -1938,23 +2131,20 @@ $$
 \xi_{kj}^{*} = \frac{ \exp\{E[\log(1-\psi_k)]\} }{ \exp\{E[\log(1-\psi_k)]\} + \exp\{ E[\log\psi_k] + E[\log(1-\phi_j)] \} }.
 $$
 
-#### **5.6** $E[\log p(a_{ik})]$
+### **5.6** $E[\log p(a_{ik})]$
 
-For the full model, $a_{ik} \sim \operatorname{Gamma}(\alpha,\alpha)$. Therefore,
-
-$$
-p(a_{ik}) = \frac{\alpha^\alpha} {\Gamma(\alpha)} a_{ik}^{\alpha-1} e^{-\alpha a_{ik}}, \quad \log p(a_{ik}) = -\log\Gamma(\alpha) + \alpha\log\alpha + (\alpha-1)\log a_{ik} - \alpha a_{ik}.
+From $a_{ik} \sim \text{Gamma}(\alpha_a, \alpha_a)$, $$
+p(a_{ik}) = \frac{\alpha_a^{\alpha_a}}{\Gamma(\alpha_a)} a_{ik}^{\alpha_a - 1} e^{-\alpha_a a_{ik}}, \quad \log p(a_{ik}) = -\log \Gamma(\alpha_a) + \alpha_a \log \alpha_a + (\alpha_a - 1)\log a_{ik} - \alpha_a a_{ik}.
 $$
 
-Hence,
-
+Under $q(a_{ik}) = \text{Gamma}(a_{a_{ik}}, b_{a_{ik}})$, $$
+\begin{aligned}
+E[\log p(a_{ik})] &= -\log \Gamma(\alpha_a) + \alpha_a \log \alpha_a + (\alpha_a - 1)\mathbb{E}[\log a_{ik}] - \alpha_a \mathbb{E}[a_{ik}] \\
+&= -\log \Gamma(\alpha_a) + \alpha_a \log \alpha_a + (\alpha_a - 1)\left[\Psi(a_{a_{ik}}) - \log b_{a_{ik}}\right] - \frac{\alpha_a a_{a_{ik}}}{b_{a_{ik}}}.
+\end{aligned}
 $$
-E[\log p(a_{ik})] = -\log\Gamma(\alpha) + \alpha\log\alpha + (\alpha-1)E[\log a_{ik}] - \alpha E[a_{ik}].
-$$
 
-But for first implementation, we fix $a_{ik}=a_{ik}^{\text{true}}$, so there is no $q(a_{ik})$ update.
-
-#### **5.7** $E[\log p(\psi_k)]$**,** $E[\log p(\phi_j)]$**, and** $E[\log p(\eta_j)]$
+### **5.7** $E[\log p(\psi_k)]$**,** $E[\log p(\phi_j)]$**, and** $E[\log p(\eta_j)]$
 
 For $\psi_k \sim \operatorname{Beta}(\alpha_\psi,\beta_\psi)$,
 
@@ -1984,7 +2174,7 @@ $$
  E[\log\eta_j] = \Psi(a_{\eta_j}) -\Psi(a_{\eta_j}+b_{\eta_j}), \quad E[\log(1-\eta_j)] = \Psi(b_{\eta_j}) -\Psi(a_{\eta_j}+b_{\eta_j}),
 $$
 
-#### **5.8** $E[\log q(\psi_k)]$**,** $E[\log q(\phi_j)]$**, and** $E[\log q(\eta_j)]$
+### **5.8** $E[\log q(\psi_k)]$**,** $E[\log q(\phi_j)]$**, and** $E[\log q(\eta_j)]$
 
 For $q(\psi_k) = \operatorname{Beta}(a_{\psi_k},b_{\psi_k})$,
 
@@ -2002,7 +2192,7 @@ $$
 E[\log q(\eta_j)] =- \log B(a_{\eta_j},b_{\eta_j}) +(a_{\eta_j}-1)E[\log\eta_j]+(b_{\eta_j}-1)E[\log(1-\eta_j)].
 $$
 
-#### **5.9** $E[\log q(\beta_{kj},\delta_{kj})]$
+### **5.9** $E[\log q(\beta_{kj},\delta_{kj})]$
 
 Since $q(\beta_{kj},\delta_{kj}) = q(\delta_{kj}) q(\beta_{kj}\mid\delta_{kj})$,
 
@@ -2122,7 +2312,7 @@ $$
 \begin{aligned} E[\log p(\beta_{kj})] - E[\log q(\beta_{kj},\delta_{kj})] ={}& E[\log p(\beta_{kj})] - E[\log q(\beta_{kj}\mid\delta_{kj})] - E[\log q(\delta_{kj})] \\ ={}&  - \frac{E[\delta_{kj}]}{2} \left[ \tau(\mu_{\beta_{kj}}^2+\sigma_{\beta_{kj}}^2) - 1 - \log(\tau\sigma_{\beta_{kj}}^2) \right] -\Big[E[\delta_{kj}]\log E[\delta_{kj}] + (1-E[\delta_{kj}])\log(1-E[\delta_{kj}])\Big]. \end{aligned} 
 $$
 
-#### **5.10** $E[\log q(z_{ij},v_{ij})]$
+### **5.10** $E[\log q(z_{ij},v_{ij})]$
 
 Since $q(z_{ij}, v_{ij}) = q(v_{ij})q(z_{ij}\mid v_{ij})$, we have
 
@@ -2181,137 +2371,37 @@ $$
 \begin{aligned} E[\log q(z_{ij}, v_{ij})] ={}& (1-E[v_{ij}]) \log(1-E[v_{ij}]) + E[v_{ij}]\log E[v_{ij}] \\ &+ E[v_{ij}] \Big[ a_{z_{ij}}\log b_{z_{ij}} - \log\Gamma(a_{z_{ij}}) + (a_{z_{ij}}-1) \left( \Psi(a_{z_{ij}}) - \log b_{z_{ij}} \right) - a_{z_{ij}} \Big]. \end{aligned} 
 $$
 
-#### **5.11** $E[\log q(a_{ik})]$
+### **5.11** $E[\log q(a_{ik})]$
 
-Deriving...
+For $q(a_{ik}) = \text{Gamma}(a_{a_{ik}}, b_{a_{ik}})$, $$
+q(a_{ik}) = \frac{b_{a_{ik}}^{a_{a_{ik}}}}{\Gamma(a_{a_{ik}})} a_{ik}^{a_{a_{ik}} - 1} \exp(-b_{a_{ik}} a_{ik}),
+$$ so $$
+\log q(a_{ik}) = a_{a_{ik}} \log b_{a_{ik}} - \log \Gamma(a_{a_{ik}}) + (a_{a_{ik}} - 1)\log a_{ik} - b_{a_{ik}} a_{ik}.
+$$ Then, $$
+\begin{aligned}
+E[\log q(a_{ik})] &= a_{a_{ik}} \log b_{a_{ik}} - \log \Gamma(a_{a_{ik}}) + (a_{a_{ik}} - 1)E[\log a_{ik}] - b_{a_{ik}} E[a_{ik}] \\
+&= a_{a_{ik}} \log b_{a_{ik}} - \log \Gamma(a_{a_{ik}}) + (a_{a_{ik}} - 1)\left[\Psi(a_{a_{ik}}) - \log b_{a_{ik}}\right] - b_{a_{ik}} \frac{a_{a_{ik}}}{b_{a_{ik}}} \\
+&= a_{a_{ik}} \log b_{a_{ik}} - \log \Gamma(a_{a_{ik}}) + (a_{a_{ik}} - 1)\left[\Psi(a_{a_{ik}}) - \log b_{a_{ik}}\right] - a_{a_{ik}}.
+\end{aligned}
+$$ Combining $E[\log p(a_{ik})]$ and $E[\log q(a_{ik})]$, $$
+E[\log p(a_{ik})] - E[\log q(a_{ik})] = -\log \Gamma(\alpha_a) + \alpha_a \log \alpha_a + \log \Gamma(a_{a_{ik}}) - a_{a_{ik}} \log b_{a_{ik}} + (\alpha_a - a_{a_{ik}})\left[\Psi(a_{a_{ik}}) - \log b_{a_{ik}}\right] - \frac{\alpha_a a_{a_{ik}}}{b_{a_{ik}}} + a_{a_{ik}}.
+$$
 
-#### **5.12 Complete ELBO**
+### **5.12 Complete ELBO**
 
 $$
 \begin{aligned}
-{\operatorname{ELBO}}(q)
-\propto{}&
-\sum_{i=1}^{N}\sum_{j=1}^{J}
-E[v_{ij}]
-\Bigg[
-\log\Gamma(x_{ij}+\rho)
--\log\Gamma(x_{ij}+1)
--\log\Gamma(\rho)
-+\rho\log\rho
-+x_{ij}\log(1-u_{ij})
-\\
-&\qquad\quad
--(\rho+x_{ij})\log\xi_{ij}
--\frac{\rho+x_{ij}}{\xi_{ij}}
-\left\{
-\rho
-+
-(1-u_{ij})
-\frac{a_{z_{ij}}}{b_{z_{ij}}}
--\xi_{ij}
-\right\}
-\\
-&\qquad\quad
--\gamma E[m_{ij}\log m_{ij}]
-+\frac12 E[\log m_{ij}]
-+\gamma E[m_{ij}]
-+\frac12 \log\left(\frac{\gamma}{2\pi}\right)
--\frac{1}{12\gamma} E[m_{ij}^{-1}]
-\\
-&\qquad\quad
-+
-\left\{
-x_{ij}
-+\gamma E[m_{ij}]
--a_{z_{ij}}
-\right\}
-\left\{
-\Psi(a_{z_{ij}})
--\log b_{z_{ij}}
-\right\}
--\gamma\frac{a_{z_{ij}}}{b_{z_{ij}}}
--a_{z_{ij}}\log b_{z_{ij}}
-+\log\Gamma(a_{z_{ij}})
-+a_{z_{ij}}
-\Bigg]
-\\
-&+
-\sum_{i=1}^{N}\sum_{j=1}^{J}
-\Big[
-E[v_{ij}]E[\log\eta_j]
-+
-(1-E[v_{ij}])
-E[\log(1-\eta_j)]
--
-E[v_{ij}]\log E[v_{ij}]
--
-(1-E[v_{ij}])
-\log(1-E[v_{ij}])
-\Big]
-\\
-&+
-\sum_{k=1}^{K}\sum_{j=1}^{J}
-\Bigg[
--\frac{E[\delta_{kj}]}{2}
-\left\{
-\tau(\mu_{\beta_{kj}}^2+\sigma_{\beta_{kj}}^2)
--1
--\log(\tau\sigma_{\beta_{kj}}^2)
-\right\}
--
-E[\delta_{kj}]\log E[\delta_{kj}]
--
-(1-E[\delta_{kj}])
-\log(1-E[\delta_{kj}])
-\\
-&\qquad\quad
-+
-E[\delta_{kj}]
-\left\{
-E[\log\psi_k]
-+
-E[\log\phi_j]
-\right\}
-+
-(1-E[\delta_{kj}])
-\Big[
-\xi_{kj}E[\log(1-\psi_k)]
-+
-(1-\xi_{kj})E[\log\psi_k]
-\\
-&\qquad\qquad\qquad\quad
-+
-(1-\xi_{kj})E[\log(1-\phi_j)]
-+
-H(\xi_{kj})
-\Big]
-\Bigg]
-\\
-&+
-\sum_{k=1}^{K}
-\Big[
--\log B(\alpha_\psi,\beta_\psi)
-+\log B(a_{\psi_k},b_{\psi_k})
-+(\alpha_\psi-a_{\psi_k})E[\log\psi_k]
-+(\beta_\psi-b_{\psi_k})E[\log(1-\psi_k)]
-\Big]
-\\
-&+
-\sum_{j=1}^{J}
-\Big[
--\log B(\alpha_\phi,\beta_\phi)
-+\log B(a_{\phi_j},b_{\phi_j})
-+(\alpha_\phi-a_{\phi_j})E[\log\phi_j]
-+(\beta_\phi-b_{\phi_j})E[\log(1-\phi_j)]
-\Big]
-\\
-&+
-\sum_{j=1}^{J}
-\Big[
--\log B(\alpha_\eta,\beta_\eta)
-+\log B(a_{\eta_j},b_{\eta_j})
-+(\alpha_\eta-a_{\eta_j})E[\log\eta_j]
-+(\beta_\eta-b_{\eta_j})E[\log(1-\eta_j)]
-\Big].
+\text{ELBO}(q) \gtrsim &\sum_{i=1}^N \sum_{j=1}^J \Bigg\{ \frac{1}{2} f''(E[n]) \operatorname{Var}(n) + E[v_{ij}]\bigg[\log \Gamma(x_{ij} + \rho) - \log \Gamma(x_{ij} + 1) - \log \Gamma(\rho) + \rho \log \rho + x_{ij} \log(1 - u_{ij}) \\
+&\quad - (\rho + x_{ij}) \log \xi_{ij} - \frac{\rho + x_{ij}}{\xi_{ij}} \left\{\rho + (1 - u_{ij})\frac{a_{z_{ij}}}{b_{z_{ij}}} - \xi_{ij}\right\} \\
+&\quad - \log \Gamma(\gamma e^{E[n]}) + \gamma e^{E[n]} \log \gamma + \{x_{ij} + \gamma e^{E[n]} - a_{z_{ij}}\}\left\{\Psi(a_{z_{ij}}) - \log b_{z_{ij}}\right\} \\
+&\quad - \gamma \frac{a_{z_{ij}}}{b_{z_{ij}}} - a_{z_{ij}} \log b_{z_{ij}} + \log \Gamma(a_{z_{ij}}) + a_{z_{ij}}\bigg] \\
+&\quad + \bigg[E[v_{ij}]E[\log \eta_j] + (1 - E[v_{ij}])E[\log(1 - \eta_j)] - E[v_{ij}]\log E[v_{ij}] - (1 - E[v_{ij}])\log(1 - E[v_{ij}])\bigg] \Bigg\} \\
+&+ \sum_{k=1}^K \sum_{j=1}^J \Bigg[ -\frac{E[\delta_{kj}]}{2} \left\{\tau(\mu_{\beta_{kj}}^2 + \sigma_{\beta_{kj}}^2) - 1 - \log(\tau \sigma_{\beta_{kj}}^2)\right\} - E[\delta_{kj}]\log E[\delta_{kj}] - (1 - E[\delta_{kj}])\log(1 - E[\delta_{kj}]) \\
+&\quad + E[\delta_{kj}]\left\{E[\log \psi_k] + E[\log \phi_j]\right\} + (1 - E[\delta_{kj}])\Big[\xi_{kj}E[\log(1 - \psi_k)] + (1 - \xi_{kj})E[\log \psi_k] \\
+&\quad + (1 - \xi_{kj})E[\log(1 - \phi_j)] + H(\xi_{kj})\Big] \Bigg] \\
+&+ \sum_{k=1}^K \Big[ -\log B(\alpha_\psi, \beta_\psi) + \log B(a_{\psi_k}, b_{\psi_k}) + (\alpha_\psi - a_{\psi_k})E[\log \psi_k] + (\beta_\psi - b_{\psi_k})E[\log(1 - \psi_k)] \Big] \\
+&+ \sum_{j=1}^J \Big[ -\log B(\alpha_\phi, \beta_\phi) + \log B(a_{\phi_j}, b_{\phi_j}) + (\alpha_\phi - a_{\phi_j})E[\log \phi_j] + (\beta_\phi - b_{\phi_j})E[\log(1 - \phi_j)] \Big] \\
+&+ \sum_{j=1}^J \Big[ -\log B(\alpha_\eta, \beta_\eta) + \log B(a_{\eta_j}, b_{\eta_j}) + (\alpha_\eta - a_{\eta_j})E[\log \eta_j] + (\beta_\eta - b_{\eta_j})E[\log(1 - \eta_j)] \Big] \\
+&+ \sum_{i=1}^N \sum_{k=1}^K \left[ -\log \Gamma(\alpha_a) + \alpha_a \log \alpha_a + \log \Gamma(a_{a_{ik}}) - a_{a_{ik}} \log b_{a_{ik}} + (\alpha_a - a_{a_{ik}})\left\{\Psi(a_{a_{ik}}) - \log b_{a_{ik}}\right\} - \frac{\alpha_a a_{a_{ik}}}{b_{a_{ik}}} + a_{a_{ik}} \right].
 \end{aligned}
 $$
