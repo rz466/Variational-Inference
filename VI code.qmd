@@ -472,23 +472,22 @@ update_q_a <- function(model) {
   expect_v <- model$params$expect_v;
   expect_delta_beta <- model$params$expect_delta_beta;
   expect_delta_beta2 <- model$params$expect_delta_beta2;
+  
+  # E_{beta, delta, a}[n]
   expect_n <- model$params$expect_log_m;
   
+  # Var(n)
   one_minus_u_sq <- (1 - u[, seq_len(K), drop = FALSE])^2;
-  var_n <- pmax((one_minus_u_sq * model$params$expect_a2) %*% expect_delta_beta2 - (one_minus_u_sq * model$params$expect_a^2) %*% (expect_delta_beta^2), 0);
+  var_n <- pmax((one_minus_u_sq * model$params$expect_a2) %*% expect_delta_beta2 - 
+                  (one_minus_u_sq * model$params$expect_a^2) %*% (expect_delta_beta^2), 0);
   
   for (k in seq_len(K)) {
     gamma_exp_expect_n <- gamma * exp(expect_n);
-    
-    if (any(!is.finite(gamma_exp_expect_n)) || any(gamma_exp_expect_n <= 0)) {
-      stop("Non-finite gamma*exp(E[n]) in q(a) update.");
-    }
     
     # f'(E[n]), f''(E[n]), f'''(E[n])
     psi0 <- digamma(gamma_exp_expect_n);
     psi1 <- trigamma(gamma_exp_expect_n);
     psi2 <- psigamma(gamma_exp_expect_n, deriv = 2);
-    
     f_first <- expect_v * gamma_exp_expect_n * (log(gamma) + expect_log_z_given_v_one - psi0);
     f_second <- f_first - expect_v * (gamma_exp_expect_n^2) * psi1;
     f_third <- f_second - expect_v * (gamma_exp_expect_n^2) * (2 * psi1 + gamma_exp_expect_n * psi2);
@@ -501,18 +500,18 @@ update_q_a <- function(model) {
     ed_beta_k <- expect_delta_beta[k, ];
     ed_beta2_k <- expect_delta_beta2[k, ];
     
-    # B_{ik} and C_{ik}
+    # B_{ik}, C_{ik}
     B_k <- -alpha + one_minus_u_k * as.vector((f_first + 0.5 * f_third * var_n) %*% ed_beta_k) -
       one_minus_u_k_sq * old_expect_a_k * as.vector(f_second %*% (ed_beta_k^2));
     C_k <- one_minus_u_k_sq * as.vector(f_second %*% ed_beta2_k);
     
-    if (any(!is.finite(B_k)) || any(!is.finite(C_k)) || any(C_k > 0) || any(C_k == 0 & B_k >= 0)) {
-      stop("Taylor q(a) is not normalizable at k=", k, ".");
+    discriminant <- B_k^2 - 4 * alpha * C_k * (1 + 1 / model$vparams$a$a[, k]);
+    if (any(!is.finite(discriminant)) || any(discriminant <= 0) || any(C_k >= 0 & B_k >= 0)) {
+      stop("Taylor q(a) has no local maximum at k=", k, ".");
     }
     
     # solve g(a_{a_{ik}}) = 0 via Newton's method
-    mu0 <- (2 * alpha) / (-B_k + sqrt(B_k^2 - 4 * alpha * C_k * (1 + 1 / model$vparams$a$a[, k])));
-    a_a_k <- alpha - C_k * mu0^2;
+    a_a_k <- model$vparams$a$a[, k];
     
     for (it in seq_len(10)) {
       S <- sqrt(B_k^2 - 4 * alpha * C_k * (1 + 1 / a_a_k));
@@ -525,11 +524,8 @@ update_q_a <- function(model) {
       g_deriv <- -t + (alpha - a_a_k) * (2 * a_a_k * p1 + (a_a_k^2) * p2 - 1) + (C_k^2 * mu^3) / ((a_a_k^2) * S);
       
       step <- g / g_deriv;
-      if (any(!is.finite(step))) {
-        stop("Non-finite Newton step in q(a) update at k=", k, ".");
-      }
-      while (any(a_a_k - step <= 0)) {
-        step[a_a_k - step <= 0] <- 0.5 * step[a_a_k - step <= 0];
+      while (any(bad <- (a_a_k - step) <= 0 | (B_k^2 - 4 * alpha * C_k * (1 + 1 / (a_a_k - step))) <= 0)) {
+        step[bad] <- 0.5 * step[bad];
       }
       a_a_k <- a_a_k - step;
       if (isTRUE(max(abs(step) / a_a_k) < 1e-10)) break;
@@ -539,8 +535,8 @@ update_q_a <- function(model) {
     new_expect_a_k <- (2 * alpha) / (-B_k + sqrt(B_k^2 - 4 * alpha * C_k * (1 + 1 / a_a_k)));
     b_a_k <- a_a_k / new_expect_a_k;
     
-    if (any(!is.finite(a_a_k)) || any(a_a_k <= 0) || any(!is.finite(b_a_k)) || any(b_a_k <= 0)) {
-      stop("Taylor q(a) is not normalizable at k=", k, ".");
+    if (any(!is.finite(a_a_k)) || any(a_a_k <= 0) || any(!is.finite(b_a_k)) || any(b_a_k <= 0) || any(!is.finite(g_deriv)) || any(g_deriv >= 0)) {
+      stop("Taylor q(a) has no local maximum at k=", k, ".");
     }
     
     new_expect_a2_k <- a_a_k * (a_a_k + 1) / (b_a_k^2);
@@ -564,18 +560,14 @@ update_q_a <- function(model) {
 
 # update the Jensen auxiliary parameter xi_kj (4.2)
 update_xi_delta <- function(model) {
-  model$params$xi_delta <- logistic(
-    outer(model$params$expect_log_one_minus_psi - model$params$expect_log_psi, 
-          model$params$expect_log_one_minus_phi, "-")
-  );
-  
+  model$params$xi_delta <- logistic(outer(model$params$expect_log_one_minus_psi - model$params$expect_log_psi, 
+                                          model$params$expect_log_one_minus_phi, "-"));
   model
 }
 
 # update the tangent auxiliary parameter xi_ij (4.5.2)
 update_xi_z <- function(model) {
   model$params$xi_z <- model$params$rho + (1 - model$data$u) * (model$vparams$z$a / model$vparams$z$b);
-  
   model
 }
 
@@ -598,11 +590,7 @@ update_q_beta_delta <- function(model) {
   for (k in seq_len(K)) {
     gamma_exp_expect_n <- gamma * exp(expect_n);
     
-    if (any(!is.finite(gamma_exp_expect_n)) || any(gamma_exp_expect_n <= 0)) {
-      stop("Non-finite gamma*exp(E[n]) in q(beta,delta) update.");
-    }
-    
-    # first and second derivatives f'(E[n]) and f''(E[n])
+    # f'(E[n]) and f''(E[n])
     f_first <- expect_v * gamma_exp_expect_n * (log(gamma) + expect_log_z_given_v_one - digamma(gamma_exp_expect_n));
     f_second <- expect_v * gamma_exp_expect_n * (log(gamma) + expect_log_z_given_v_one - digamma(gamma_exp_expect_n) -
                                                    gamma_exp_expect_n * trigamma(gamma_exp_expect_n));
@@ -638,7 +626,7 @@ update_q_beta_delta <- function(model) {
     log_c_one <- model$params$expect_log_psi[k] + model$params$expect_log_phi +
       (mu_beta^2) / (2 * sigma2_beta) + 0.5 * log(2 * pi * sigma2_beta);
     
-    # normalize the two weights
+    # normalize two weights
     max_val <- pmax(log_c_zero, log_c_one);
     log_denominator <- max_val + log(exp(log_c_zero - max_val) + exp(log_c_one - max_val));
     
@@ -658,7 +646,6 @@ update_q_beta_delta <- function(model) {
     model$params$expect_beta[k, ] <- new_expect_delta_beta;
     model$params$expect_beta2[k, ] <- (1 - expect_delta) / tau + new_expect_delta_beta2;
     
-    # update E[n]
     expect_n <- expect_n + outer(C1_k, new_expect_delta_beta - old_expect_delta_beta, "*");
   }
   
@@ -688,13 +675,6 @@ update_q_z_v <- function(model) {
   # a_{z_{ij}}, b_{z_{ij}}
   a_z <- x + gamma_expect_m * (1 + 0.5 * var_n);
   b_z <- gamma + ((rho + x) * (1 - u)) / xi_z;
-  
-  if (
-    any(!is.finite(a_z)) || any(a_z <= 0) ||
-    any(!is.finite(b_z)) || any(b_z <= 0)
-  ) {
-    stop("Invalid Gamma parameters in q(z|v=1) update.");
-  }
   
   model$vparams$z$a <- a_z;
   model$vparams$z$b <- b_z;
@@ -730,7 +710,7 @@ update_q_z_v <- function(model) {
 # update q(eta_j) (4.4)
 update_q_eta <- function(model) {
   model$vparams$eta <- list(a = model$params$alpha_eta + colSums(model$params$expect_v),
-                            b = model$params$beta_eta + model$data$N - colSums(model$params$expect_v));
+                            b = model$params$beta_eta + colSums(1 - model$params$expect_v));
   model$params$expect_log_eta <- expect_log_x_beta(model$vparams$eta);
   model$params$expect_log_one_minus_eta <- expect_log_1mx_beta(model$vparams$eta);
   model
@@ -772,10 +752,12 @@ elbo_components <- function(model) {
     expect_log_z_given_v_one <- digamma(a_z) - log(b_z);
     expect_z_given_v_one <- a_z / b_z;
     
-    # Section 5.2 and 5.12: f''(E[n]) and Var(n)
+    # f''(E[n])
     gamma_exp_expect_n <- gamma * expect_m;
     f_second <- expect_v * gamma_exp_expect_n * (log(gamma) + expect_log_z_given_v_one - digamma(gamma_exp_expect_n) -
       gamma_exp_expect_n * trigamma(gamma_exp_expect_n));
+    
+    # Var(n)
     one_minus_u_sq <- (1 - u[, seq_len(K), drop=FALSE])^2;
     var_n <- pmax((one_minus_u_sq * expect_a2) %*% expect_delta_beta2 - (one_minus_u_sq * (expect_a^2)) %*% (expect_delta_beta^2), 0);
     
@@ -789,7 +771,7 @@ elbo_components <- function(model) {
     z_block <- sum(0.5 * f_second * var_n + expect_v * (observation_constant + observation_auxiliary + latent_shape_part + z_variational_part));
     
     # E[log p(v|eta)] - E[log q(v)]
-    v_eta_block <- sum(sweep(expect_v, 2, expect_log_eta, "*") + sweep(1 - expect_v, 2, expect_log_one_minus_eta, "*")) + entropy_bern_d(expect_v);
+    v_eta_block <- sum(colSums(expect_v) * expect_log_eta + colSums(1 - expect_v) * expect_log_one_minus_eta) + entropy_bern_d(expect_v);
     
     # E[log p(beta)] - E[log q(beta|delta)]
     mu_beta <- model$vparams$beta_delta$mu_beta;
@@ -807,13 +789,12 @@ elbo_components <- function(model) {
     H_xi_delta <- bern_h(xi_delta);
     
     delta_prior_block <- sum(expect_delta * (expect_log_psi_matrix + expect_log_phi_matrix) +
-                               (1 - expect_delta) * (xi_delta * expect_log_one_minus_psi_matrix +
-                                                       (1 - xi_delta) * expect_log_psi_matrix +
+                               (1 - expect_delta) * (xi_delta * expect_log_one_minus_psi_matrix + (1 - xi_delta) * expect_log_psi_matrix +
                                                        (1 - xi_delta) * expect_log_one_minus_phi_matrix + H_xi_delta));
     
     beta_delta_block <- beta_conditional_block + delta_variational_block + delta_prior_block;
     
-    # E[log p] - E[log q] for Beta and Gamma variational factors
+    # E[log p] - E[log q]
     psi_block <- beta_prior_minus_q(model$vparams$psi, alpha_psi, beta_psi);
     phi_block <- beta_prior_minus_q(model$vparams$phi, alpha_phi, beta_phi);
     eta_block <- beta_prior_minus_q(model$vparams$eta, alpha_eta, beta_eta);
@@ -839,7 +820,7 @@ elbo <- function(model) {
   elbo_components(model)$total
 }
 
-# append ELBO after one coordinate update
+# append ELBO after one update
 append_elbo_trace <- function(model, iteration, step, previous_elbo, verbose=1) {
   components <- elbo_components(model);
   current_elbo <- components$total;
@@ -889,7 +870,7 @@ final_elbo <- function(model) {
   elbo(model)
 }
 
-# sample a randomized ExprSim initialization
+# sample a random initialization
 sample_model <- function(data, hparams, fixed=NULL) {
   if (!is(data, "exprsim_vi_data")) {
     data <- prepare_data(data)
@@ -910,7 +891,7 @@ sample_model <- function(data, hparams, fixed=NULL) {
   make_model(data, params0, hparams, fixed = fixed)
 }
 
-# search over multiple ExprSim initializations
+# search over multiple initializations
 exprsim_vi_search <- function(data, hparams, n_starts=10, fixed=NULL, tol=1e-2, max.iter=2000, verbose=1, seed=NULL) {
   if (!is.null(seed)) {
     set.seed(seed);
@@ -926,7 +907,7 @@ exprsim_vi_search <- function(data, hparams, n_starts=10, fixed=NULL, tol=1e-2, 
 
   search_elbo <- rep(NA, n_starts);
 
-  # first fit: default initialization
+  # first fit
   best_model <- exprsim_vi_local(
     data=data,
     hparams=hparams,
@@ -949,13 +930,26 @@ exprsim_vi_search <- function(data, hparams, n_starts=10, fixed=NULL, tol=1e-2, 
     for (s in 2:n_starts) {
       initial_model <- sample_model(data, hparams, fixed = fixed);
 
-      candidate_model <- exprsim_vi_local(
-        model=initial_model,
-        fixed=fixed,
-        verbose=if (verbose >= 4) verbose else 0,
-        tol=tol,
-        max.iter=max.iter
+      candidate_model <- tryCatch(
+        exprsim_vi_local(
+          model=initial_model,
+          fixed=fixed,
+          verbose=if (verbose >= 4) verbose else 0,
+          tol=tol,
+          max.iter=max.iter
+        ),
+        error=function(e) {
+          if (verbose >= 2) {
+            message("search start: ", s, " failed: ", conditionMessage(e));
+          }
+          NULL
+        }
       );
+
+      if (is.null(candidate_model)) {
+        search_elbo[s] <- -Inf;
+        next;
+      }
 
       candidate_elbo <- final_elbo(candidate_model);
       search_elbo[s] <- candidate_elbo;
@@ -988,7 +982,7 @@ exprsim_vi_search <- function(data, hparams, n_starts=10, fixed=NULL, tol=1e-2, 
 ```
 
 ```{r}
-# fit VI to K562 subsample
+# K562
 k562 <- readH5AD("/Users/zhangrui/Desktop/precmat/K562_essential_raw_singlecell_01.h5ad", reader="R", use_hdf5=TRUE)
 
 C <- assay(k562, "X")
@@ -1158,8 +1152,8 @@ search_hparams_beta <- function(settings, name, mu_grid, lambda_grid, stage) {
 }
 
 # hyperparameter grids
-tau_grid <- c(600, 700, 800, 900)
-gamma_grid <- c(0.6, 0.7, 0.8)
+tau_grid <- c(650, 700, 750, 800)
+gamma_grid <- c(0.65, 0.7, 0.75, 0.8)
 rho_grid <- c(45, 50, 55, 60)
 u_grid <- c(0.1, 0.3, 0.5, 0.7, 0.9)
 alpha_grid <- c(100, 120, 140, 160)
@@ -1219,7 +1213,7 @@ final_u[, seq_len(K)] <- sweep(u_indicator[, seq_len(K), drop=FALSE], 2, best_se
 final_data <- list(x=x, u=final_u, K=K)
 
 # final VI fit with different VI initializations
-fit <- exprsim_vi_search(data=final_data, hparams=final_hparams, n_starts=5, tol=1e-2, max.iter=10000, verbose=2, seed=123)
+fit <- exprsim_vi_search(data=final_data, hparams=final_hparams, n_starts=5, tol=1e-2, max.iter=5000, verbose=2, seed=123)
 print(fit)
 
 # final ELBO
@@ -1232,7 +1226,7 @@ print(final_elbo(fit))
 cat("\nLast 20 ELBO updates:\n")
 print(tail(fit$elbo_trace, 20))
 
-# plot actual ELBO for every variational step
+# plot ELBO for every variational step
 no_initial <- subset(fit$elbo_trace, step != "initial")
 p <- ggplot(no_initial, aes(x = seq_len(nrow(no_initial)), y = elbo, color = step)) +
   geom_line(aes(group = 1), alpha = 0.3, color = "grey50") +
